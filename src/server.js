@@ -30,12 +30,14 @@ const initializeServer = async () => {
   } catch (error) {
     console.error('❌ Server initialization failed:', error.message);
     console.error('🔍 Full error:', error);
-    // Don't exit in serverless environment
+    // Don't exit in serverless environment - just log the error
   }
 };
 
-// Initialize server
-initializeServer();
+// Initialize server but don't block startup
+initializeServer().catch(error => {
+  console.error('❌ Server initialization error:', error);
+});
 
 // Security middleware
 app.use(helmet());
