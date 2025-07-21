@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Force deployment with updated environment variables
 const connectDB = require('./config/database');
-const errorHandler = require('./middleware/errorHandler');
+const { errorHandler } = require('./middleware/errorHandler');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
