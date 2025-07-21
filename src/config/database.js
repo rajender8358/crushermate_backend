@@ -5,7 +5,7 @@ const connectDB = async () => {
     // Use environment variable or fallback to Atlas connection
     const mongoURI =
       process.env.MONGODB_URI ||
-      'mongodb+srv://rajenderreddygarlapalli:MacBook%408358%249154@crushermate.utrbdfv.mongodb.net/CrusherMate?retryWrites=true&w=majority';
+      'mongodb+srv://rajenderreddygarlapalli:MacBook%408358%249154@crushermate.utrbdfv.mongodb.net/crushermate?retryWrites=true&w=majority';
 
     console.log('🔗 Connecting to MongoDB...');
     console.log('🌐 URI:', mongoURI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
