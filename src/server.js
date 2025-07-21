@@ -9,6 +9,7 @@ require('dotenv').config();
 // Force deployment with updated environment variables
 const connectDB = require('./config/database');
 const { errorHandler } = require('./middleware/errorHandler');
+const { authenticateToken } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -124,12 +125,12 @@ app.get('/test-db', async (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/truck-entries', truckEntryRoutes);
-app.use('/api/material-rates', materialRateRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/config', configRoutes);
-app.use('/api/reports', reportRoutes);
+app.use('/api/users', authenticateToken, userRoutes);
+app.use('/api/truck-entries', authenticateToken, truckEntryRoutes);
+app.use('/api/material-rates', authenticateToken, materialRateRoutes);
+app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+app.use('/api/config', authenticateToken, configRoutes);
+app.use('/api/reports', authenticateToken, reportRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
