@@ -10,14 +10,14 @@ require('dotenv').config();
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
-// Import routes - comment out problematic ones for now
-// const authRoutes = require('./routes/authRoutes');
-// const userRoutes = require('./routes/userRoutes');
-// const truckEntryRoutes = require('./routes/truckEntryRoutes');
-// const materialRateRoutes = require('./routes/materialRateRoutes');
-// const dashboardRoutes = require('./routes/dashboardRoutes');
-// const configRoutes = require('./routes/configRoutes');
-// const reportRoutes = require('./routes/reportRoutes');
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const truckEntryRoutes = require('./routes/truckEntryRoutes');
+const materialRateRoutes = require('./routes/materialRateRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const configRoutes = require('./routes/configRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
@@ -122,14 +122,14 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// API routes - comment out problematic ones for now
-// app.use('/api/auth', authRoutes);
-// app.use('/api/users', userRoutes);
-// app.use('/api/truck-entries', truckEntryRoutes);
-// app.use('/api/material-rates', materialRateRoutes);
-// app.use('/api/dashboard', dashboardRoutes);
-// app.use('/api/config', configRoutes);
-// app.use('/api/reports', reportRoutes);
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/truck-entries', truckEntryRoutes);
+app.use('/api/material-rates', materialRateRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/config', configRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
