@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 // Force deployment with updated environment variables
@@ -20,8 +21,19 @@ const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB with better error handling
+const initializeServer = async () => {
+  try {
+    await connectDB();
+    console.log('✅ Server initialization complete');
+  } catch (error) {
+    console.error('❌ Server initialization failed:', error.message);
+    // Don't exit in serverless environment
+  }
+};
+
+// Initialize server
+initializeServer();
 
 // Security middleware
 app.use(helmet());
@@ -64,7 +76,35 @@ app.get('/health', (req, res) => {
     message: 'CrusherMate API Server is running!',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
+    database:
+      mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
   });
+});
+
+// Test MongoDB connection endpoint
+app.get('/test-db', async (req, res) => {
+  try {
+    if (mongoose.connection.readyState === 1) {
+      res.status(200).json({
+        success: true,
+        message: 'MongoDB connection successful',
+        database: mongoose.connection.name,
+        state: mongoose.connection.readyState,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'MongoDB connection failed',
+        state: mongoose.connection.readyState,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Database test failed',
+      error: error.message,
+    });
+  }
 });
 
 // API routes
