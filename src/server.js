@@ -24,10 +24,12 @@ const app = express();
 // Connect to MongoDB with better error handling
 const initializeServer = async () => {
   try {
+    console.log('🚀 Starting server initialization...');
     await connectDB();
     console.log('✅ Server initialization complete');
   } catch (error) {
     console.error('❌ Server initialization failed:', error.message);
+    console.error('🔍 Full error:', error);
     // Don't exit in serverless environment
   }
 };
@@ -78,6 +80,15 @@ app.get('/health', (req, res) => {
     version: '1.0.0',
     database:
       mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  });
+});
+
+// Simple health check without database dependency
+app.get('/ping', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Pong! Server is responding',
+    timestamp: new Date().toISOString(),
   });
 });
 
