@@ -36,8 +36,9 @@ const connectDB = async () => {
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     console.error('🔍 Error details:', error);
-    // Don't exit in serverless environment
-    throw error; // Let the calling function handle it
+    console.error('🔍 Error stack:', error.stack);
+    // Don't throw error - just log it and continue
+    console.log('⚠️ Continuing without MongoDB connection...');
   }
 };
 
