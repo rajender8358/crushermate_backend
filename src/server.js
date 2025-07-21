@@ -5,6 +5,7 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Force deployment with updated environment variables
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
