@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   createTruckEntry,
-  getTruckEntries,
+  getAllTruckEntries,
   getTruckEntry,
   updateTruckEntry,
   deleteTruckEntry,
@@ -24,7 +24,7 @@ router.post(
   createTruckEntryValidation, // Then validate
   createTruckEntry,
 );
-router.get('/', getTruckEntries);
+router.get('/', getAllTruckEntries);
 router.get('/:id', getTruckEntry);
 router.put(
   '/:id',

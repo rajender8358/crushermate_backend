@@ -1,7 +1,13 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const truckEntrySchema = new mongoose.Schema(
   {
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Organization',
+      required: [true, 'Entry must belong to an organization'],
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -94,6 +100,9 @@ const truckEntrySchema = new mongoose.Schema(
     toObject: { virtuals: true },
   },
 );
+
+// Add pagination plugin
+truckEntrySchema.plugin(mongoosePaginate);
 
 // Compound indexes for better query performance
 truckEntrySchema.index({ userId: 1, entryDate: -1 });
