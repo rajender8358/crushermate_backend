@@ -11,13 +11,12 @@ const getAppConfig = asyncHandler(async (req, res) => {
     // Get current material rates for the organization
     const materialRates = await MaterialRate.find({
       organization: organizationId,
-      isActive: true,
     });
     const formattedRates = materialRates.reduce((acc, rate) => {
       acc[rate.materialType] = {
-        currentRate: rate.rate,
-        lastUpdated: rate.startDate,
-        updatedBy: rate.setBy,
+        currentRate: rate.currentRate,
+        lastUpdated: rate.effectiveDate,
+        updatedBy: rate.updatedBy,
       };
       return acc;
     }, {});
@@ -46,6 +45,12 @@ const getAppConfig = asyncHandler(async (req, res) => {
     if (materialTypes.length === 0) {
       materialTypes = ['M-Sand', 'P-Sand', 'Blue Metal'];
     }
+
+    // Convert material types to the format expected by frontend
+    const formattedMaterialTypes = materialTypes.map(materialType => ({
+      value: materialType,
+      label: materialType,
+    }));
 
     // Entry types configuration
     const entryTypes = [
@@ -80,7 +85,7 @@ const getAppConfig = asyncHandler(async (req, res) => {
       success: true,
       data: {
         entryTypes,
-        materialTypes: materialTypes.map(m => ({ value: m, label: m })),
+        materialTypes: formattedMaterialTypes,
         materialRates: formattedRates,
         businessRules,
       },

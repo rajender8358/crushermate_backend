@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema(
     organization: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Organization',
-      required: [true, 'User must belong to an organization'],
+      required: false, // Made optional for initial setup
     },
     username: {
       type: String,
