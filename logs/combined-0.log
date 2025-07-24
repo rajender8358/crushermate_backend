@@ -840,3 +840,16 @@ Error: bind EADDRINUSE 0.0.0.0:3000
     at process.emit (node:events:519:35)
     at emit (node:internal/child_process:949:14)
     at process.processTicksAndRejections (node:internal/process/task_queues:91:21)
+2025-07-23T11:17:49: 🚀 CrusherMate API Server Started!
+2025-07-23T11:17:49: 📡 Server: http://localhost:3000
+2025-07-23T11:17:49: 🏥 Health: http://localhost:3000/health
+2025-07-23T11:17:49: 🌐 Environment: development
+2025-07-23T11:17:49: ⏰ Started at: 7/23/2025, 11:17:49 AM
+2025-07-23T11:17:49: 🚀 Starting server initialization...
+2025-07-23T11:17:49: 🔗 Connecting to MongoDB...
+2025-07-23T11:17:49: 🌐 URI: mongodb://localhost:27017/crushermate
+2025-07-23T11:17:49: ✅ MongoDB connected successfully
+2025-07-23T11:17:49: 📊 Database: CrusherMate
+2025-07-23T11:17:49: ✅ Server initialization complete
+2025-07-23T11:37:56: 🔌 MongoDB disconnected
+2025-07-23T11:38:06: 🔄 MongoDB reconnected

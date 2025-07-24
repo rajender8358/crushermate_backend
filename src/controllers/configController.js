@@ -5,98 +5,94 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 // @route   GET /api/config/app
 // @access  Private
 const getAppConfig = asyncHandler(async (req, res) => {
-  // Get current material rates
-  const materialRates = await MaterialRate.getCurrentRates();
+  const { organizationId } = req.user;
 
-  // Entry types configuration
-  const entryTypes = [
-    {
-      value: 'Sales',
-      label: 'Sales',
-      description: 'Revenue from material sales',
-      requiresMaterial: true,
-    },
-    {
-      value: 'Raw Stone',
-      label: 'Raw Stone',
-      description: 'Raw material purchases',
-      requiresMaterial: false,
-    },
-  ];
+  try {
+    // Get current material rates for the organization
+    const materialRates = await MaterialRate.find({
+      organization: organizationId,
+      isActive: true,
+    });
+    const formattedRates = materialRates.reduce((acc, rate) => {
+      acc[rate.materialType] = {
+        currentRate: rate.rate,
+        lastUpdated: rate.startDate,
+        updatedBy: rate.setBy,
+      };
+      return acc;
+    }, {});
 
-  // Material types configuration
-  const materialTypes = [
-    {
-      value: 'M-Sand',
-      label: 'M-Sand',
-      description: 'Manufactured Sand',
-      category: 'sand',
-    },
-    {
-      value: 'P-Sand',
-      label: 'P-Sand',
-      description: 'Plastering Sand',
-      category: 'sand',
-    },
-    {
-      value: 'Blue Metal',
-      label: 'Blue Metal',
-      description: 'Crushed Stone Aggregate',
-      category: 'aggregate',
-    },
-  ];
-
-  // Create rates lookup for quick access
-  const ratesLookup = {};
-  materialRates.forEach(rate => {
-    ratesLookup[rate.materialType] = {
-      currentRate: rate.currentRate,
-      previousRate: rate.previousRate,
-      lastUpdated: rate.effectiveDate,
-      updatedBy: rate.updatedBy,
+    // Add default rates for common materials if they're not in the database
+    const defaultRates = {
+      'Raw Stone': { currentRate: 18000 },
+      'M-Sand': { currentRate: 22000 },
+      'P-Sand': { currentRate: 20000 },
+      'Blue Metal': { currentRate: 24000 },
     };
-  });
 
-  // Business rules
-  const businessRules = {
-    validation: {
-      truckNumber: {
-        pattern: '^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$',
-        example: 'KA01AB1234',
-        message: 'Please enter a valid truck number format',
-      },
-      units: {
-        min: 0.1,
-        max: 100,
-        message: 'Units must be between 0.1 and 100',
-      },
-      rate: {
-        min: 1,
-        max: 100000,
-        message: 'Rate must be between ₹1 and ₹100,000',
-      },
-    },
-    calculations: {
-      totalAmount: 'units * ratePerUnit',
-      roundingPrecision: 2,
-    },
-  };
+    // Add default rates for materials that don't have rates in the database
+    Object.keys(defaultRates).forEach(materialType => {
+      if (!formattedRates[materialType]) {
+        formattedRates[materialType] = defaultRates[materialType];
+      }
+    });
 
-  res.json({
-    success: true,
-    data: {
-      entryTypes,
-      materialTypes,
-      materialRates: ratesLookup,
-      businessRules,
-      appSettings: {
-        currency: 'INR',
-        locale: 'en-IN',
-        dateFormat: 'DD/MM/YYYY',
-        timeFormat: 'HH:mm',
+    // Get available material types for the organization
+    let materialTypes = await MaterialRate.distinct('materialType', {
+      organization: organizationId,
+    });
+
+    // If no material types found in database, use default ones
+    if (materialTypes.length === 0) {
+      materialTypes = ['M-Sand', 'P-Sand', 'Blue Metal'];
+    }
+
+    // Entry types configuration
+    const entryTypes = [
+      {
+        value: 'Sales',
+        label: 'Sales',
+        description: 'Revenue from material sales',
+        requiresMaterial: true,
       },
-    },
-  });
+      {
+        value: 'Raw Stone',
+        label: 'Raw Stone',
+        description: 'Raw material purchases',
+        requiresMaterial: false,
+      },
+    ];
+
+    // Business rules for frontend logic
+    const businessRules = {
+      validation: {
+        truckNumberPattern:
+          '^[A-Z]{2}[\\s\\-]?[0-9]{2}[\\s\\-]?[A-Z]{1,2}[\\s\\-]?[0-9]{4}$',
+        units: { min: 0.1, max: 100 },
+        rate: { min: 1 },
+      },
+      calculations: {
+        gstRate: 0.18, // Example GST rate
+      },
+    };
+
+    res.json({
+      success: true,
+      data: {
+        entryTypes,
+        materialTypes: materialTypes.map(m => ({ value: m, label: m })),
+        materialRates: formattedRates,
+        businessRules,
+      },
+    });
+  } catch (error) {
+    console.error('Error loading app configuration:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load app configuration',
+      error: error.message,
+    });
+  }
 });
 
 // @desc    Calculate total amount for given units and rate
@@ -172,21 +168,23 @@ const calculateTotal = asyncHandler(async (req, res) => {
 // @route   GET /api/config/rates
 // @access  Private
 const getCurrentRates = asyncHandler(async (req, res) => {
+  const { organizationId } = req.user;
   const { units = 1 } = req.query;
   const unitsNum = parseFloat(units);
 
-  const materialRates = await MaterialRate.getCurrentRates();
+  const materialRates = await MaterialRate.find({
+    organization: organizationId,
+    isActive: true,
+  });
 
   const ratesWithCalculations = materialRates.map(rate => {
-    const totalForUnits = unitsNum * rate.currentRate;
+    const totalForUnits = unitsNum * rate.rate;
 
     return {
       materialType: rate.materialType,
-      currentRate: rate.currentRate,
-      previousRate: rate.previousRate,
-      changePercentage: rate.rateChangePercentage,
-      lastUpdated: rate.effectiveDate,
-      updatedBy: rate.updatedBy,
+      currentRate: rate.rate,
+      lastUpdated: rate.startDate,
+      updatedBy: rate.setBy,
       calculation: {
         units: unitsNum,
         totalAmount: Math.round(totalForUnits * 100) / 100,
@@ -195,7 +193,7 @@ const getCurrentRates = asyncHandler(async (req, res) => {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0,
-          }).format(rate.currentRate),
+          }).format(rate.rate),
           total: new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',

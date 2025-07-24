@@ -2,6 +2,7 @@ const TruckEntry = require('../models/TruckEntry');
 const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const mongoose = require('mongoose');
 
 // Helper function to get date ranges
 const getDateRange = period => {
@@ -62,28 +63,56 @@ const getDateRange = period => {
 // @route   GET /api/dashboard/summary
 // @access  Private
 const getDashboardSummary = asyncHandler(async (req, res) => {
-  const { period = 'month', userId } = req.query;
-  const { startDate, endDate } = getDateRange(period);
+  const { organizationId, id: userId, role } = req.user;
+  const {
+    period = 'week',
+    userId: queryUserId,
+    startDate: queryStartDate,
+    endDate: queryEndDate,
+  } = req.query;
 
-  // Build filter based on user role
-  const filter = {};
-  if (req.user.role !== 'owner') {
-    filter.userId = req.user.id;
-  } else if (userId) {
-    filter.userId = userId;
+  let startDate, endDate;
+  if (queryStartDate && queryEndDate) {
+    startDate = new Date(queryStartDate);
+    startDate.setUTCHours(0, 0, 0, 0);
+    endDate = new Date(queryEndDate);
+    endDate.setUTCHours(23, 59, 59, 999);
+  } else {
+    const range = getDateRange(period);
+    startDate = range.startDate;
+    endDate = range.endDate;
   }
 
-  // Get summary data
+  // Build filter based on user role and organization
+  const filter = {
+    organization: new mongoose.Types.ObjectId(organizationId),
+  };
+  if (role !== 'owner') {
+    filter.userId = new mongoose.Types.ObjectId(userId);
+  } else if (queryUserId) {
+    filter.userId = new mongoose.Types.ObjectId(queryUserId);
+  }
+
+  // Get summary data for the selected range
   const summary = await TruckEntry.getSummaryByDateRange(
     startDate,
     endDate,
     filter,
   );
 
-  // Get recent entries (last 5)
-  const recentEntries = await TruckEntry.find({
-    status: 'active',
+  // Get today's entries count separately
+  const todayRange = getDateRange('today');
+  const todayEntriesCount = await TruckEntry.countDocuments({
     ...filter,
+    status: 'active',
+    entryDate: { $gte: todayRange.startDate, $lte: todayRange.endDate },
+  });
+
+  // Get recent entries (last 5 from the selected range)
+  const recentEntries = await TruckEntry.find({
+    ...filter,
+    status: 'active',
+    entryDate: { $gte: startDate, $lte: endDate },
   })
     .populate('userId', 'username email')
     .sort({ createdAt: -1 })
@@ -93,10 +122,10 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   const materialBreakdown = await TruckEntry.aggregate([
     {
       $match: {
+        ...filter,
         status: 'active',
         entryType: 'Sales',
         entryDate: { $gte: startDate, $lte: endDate },
-        ...(filter.userId && { userId: filter.userId }),
       },
     },
     {
@@ -117,9 +146,9 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   const topTrucks = await TruckEntry.aggregate([
     {
       $match: {
+        ...filter,
         status: 'active',
         entryDate: { $gte: startDate, $lte: endDate },
-        ...(filter.userId && { userId: filter.userId }),
       },
     },
     {
@@ -142,9 +171,10 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      period,
+      period: queryStartDate ? 'custom' : period,
       dateRange: { startDate, endDate },
       summary,
+      todayEntries: todayEntriesCount,
       recentEntries,
       materialBreakdown,
       topTrucks,
@@ -156,24 +186,27 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
 // @route   GET /api/dashboard/financial
 // @access  Private
 const getFinancialMetrics = asyncHandler(async (req, res) => {
-  const { period = 'month', userId } = req.query;
+  const { organizationId, id: userId, role } = req.user;
+  const { period = 'month', userId: queryUserId } = req.query;
   const { startDate, endDate } = getDateRange(period);
 
-  // Build filter based on user role
-  const filter = {};
-  if (req.user.role !== 'owner') {
-    filter.userId = req.user.id;
-  } else if (userId) {
-    filter.userId = userId;
+  // Build filter based on user role and organization
+  const filter = {
+    organization: new mongoose.Types.ObjectId(organizationId),
+  };
+  if (role !== 'owner') {
+    filter.userId = new mongoose.Types.ObjectId(userId);
+  } else if (queryUserId) {
+    filter.userId = new mongoose.Types.ObjectId(queryUserId);
   }
 
   // Get daily breakdown for charts
   const dailyBreakdown = await TruckEntry.aggregate([
     {
       $match: {
+        ...filter,
         status: 'active',
         entryDate: { $gte: startDate, $lte: endDate },
-        ...(filter.userId && { userId: filter.userId }),
       },
     },
     {
@@ -264,18 +297,25 @@ const getDashboardStats = asyncHandler(async (req, res) => {
     );
   }
 
+  const { organizationId } = req.user;
   const { period = 'month' } = req.query;
   const { startDate, endDate } = getDateRange(period);
 
+  const filter = {
+    organization: new mongoose.Types.ObjectId(organizationId),
+  };
+
   // Total users
-  const totalUsers = await User.countDocuments({ isActive: true });
+  const totalUsers = await User.countDocuments({ ...filter, isActive: true });
   const newUsersThisPeriod = await User.countDocuments({
+    ...filter,
     isActive: true,
     createdAt: { $gte: startDate, $lte: endDate },
   });
 
   // Active users (users who made entries in this period)
   const activeUsers = await TruckEntry.distinct('userId', {
+    ...filter,
     status: 'active',
     entryDate: { $gte: startDate, $lte: endDate },
   });
@@ -284,6 +324,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   const topUsers = await TruckEntry.aggregate([
     {
       $match: {
+        ...filter,
         status: 'active',
         entryDate: { $gte: startDate, $lte: endDate },
       },
@@ -339,6 +380,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
   const overallSummary = await TruckEntry.getSummaryByDateRange(
     startDate,
     endDate,
+    filter,
   );
 
   res.json({

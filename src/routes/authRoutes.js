@@ -6,14 +6,12 @@ const {
   verifyToken,
   logout,
   getProfile,
-  registerValidation,
-  loginValidation,
 } = require('../controllers/authController');
 const { authenticateToken } = require('../middleware/auth');
 
 // Public routes
-router.post('/register', registerValidation, register);
-router.post('/login', loginValidation, login);
+router.post('/register', register);
+router.post('/login', login);
 
 // Protected routes
 router.get('/verify-token', authenticateToken, verifyToken);

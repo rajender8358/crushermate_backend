@@ -1,80 +1,45 @@
-const User = require('../models/User');
-const { generateToken } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
-const { body, validationResult } = require('express-validator');
-
-// Validation rules
-const registerValidation = [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Please provide a valid email'),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters'),
-  body('username')
-    .isLength({ min: 3, max: 30 })
-    .trim()
-    .withMessage('Username must be between 3-30 characters'),
-  body('mobileNumber')
-    .matches(/^[0-9]{10}$/)
-    .withMessage('Please provide a valid 10-digit mobile number'),
-];
-
-const loginValidation = [
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Please provide a valid email'),
-  body('password').notEmpty().withMessage('Password is required'),
-];
+const User = require('../models/User');
+const Organization = require('../models/Organization');
+const { generateToken } = require('../middleware/auth');
 
 // @desc    Register new user
 // @route   POST /api/auth/register
 // @access  Public
 const register = asyncHandler(async (req, res) => {
-  // Check validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array().map(err => err.msg),
-      error: 'VALIDATION_ERROR',
-    });
-  }
+  const { username, password, organizationId, role = 'user' } = req.body;
 
-  const { email, password, username, mobileNumber, role = 'user' } = req.body;
-
-  // Check if user already exists
-  const existingUser = await User.findOne({
-    $or: [{ email: email.toLowerCase() }, { username: username }],
-  });
-
-  if (existingUser) {
+  if (!username || !password || !organizationId) {
     throw new AppError(
-      existingUser.email === email.toLowerCase()
-        ? 'Email already registered'
-        : 'Username already taken',
+      'Username, password, and organization are required',
       400,
-      'USER_EXISTS',
+      'VALIDATION_ERROR',
     );
   }
 
-  // Create user
+  const organization = await Organization.findById(organizationId);
+  if (!organization) {
+    throw new AppError('Invalid organization', 400, 'VALIDATION_ERROR');
+  }
+
+  const existingUser = await User.findOne({ username: username.toLowerCase() });
+  if (existingUser) {
+    throw new AppError('Username already exists', 400, 'USER_EXISTS');
+  }
+
   const user = await User.create({
-    email: email.toLowerCase(),
+    username: username.toLowerCase(),
     password,
-    username,
-    mobileNumber,
-    role: role === 'owner' ? 'owner' : 'user', // Only allow owner if explicitly set
+    organization: organizationId,
+    role: role,
   });
 
-  // Generate token
-  const token = generateToken(user._id, user.email, user.role);
-
-  // Update last login
-  await user.updateLastLogin();
+  const token = generateToken(
+    user._id,
+    user.username,
+    user.role,
+    user.organization,
+  );
 
   res.status(201).json({
     success: true,
@@ -82,13 +47,11 @@ const register = asyncHandler(async (req, res) => {
     data: {
       user: {
         id: user._id,
-        email: user.email,
         username: user.username,
-        mobileNumber: user.mobileNumber,
         role: user.role,
+        organization: user.organization,
       },
       token,
-      expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
     },
   });
 });
@@ -97,43 +60,39 @@ const register = asyncHandler(async (req, res) => {
 // @route   POST /api/auth/login
 // @access  Public
 const login = asyncHandler(async (req, res) => {
-  // Check validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      message: 'Validation failed',
-      errors: errors.array().map(err => err.msg),
-      error: 'VALIDATION_ERROR',
-    });
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    throw new AppError(
+      'Username and password are required',
+      401,
+      'INVALID_CREDENTIALS',
+    );
   }
 
-  const { email, password } = req.body;
+  const user = await User.findOne({ username: username.toLowerCase() })
+    .populate('organization')
+    .select('+password');
 
-  // Find user and include password for comparison
-  const user = await User.findOne({ email: email.toLowerCase() }).select(
-    '+password',
-  );
-
-  if (!user) {
-    throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
+  if (!user || !(await user.comparePassword(password))) {
+    throw new AppError(
+      'Invalid username or password',
+      401,
+      'INVALID_CREDENTIALS',
+    );
   }
 
-  // Check if user is active
   if (!user.isActive) {
     throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
   }
 
-  // Check password
-  const isPasswordValid = await user.comparePassword(password);
-  if (!isPasswordValid) {
-    throw new AppError('Invalid email or password', 401, 'INVALID_CREDENTIALS');
-  }
+  const token = generateToken(
+    user._id,
+    user.username,
+    user.role,
+    user.organization._id,
+  );
 
-  // Generate token
-  const token = generateToken(user._id, user.email, user.role);
-
-  // Update last login
   await user.updateLastLogin();
 
   res.json({
@@ -142,14 +101,12 @@ const login = asyncHandler(async (req, res) => {
     data: {
       user: {
         id: user._id,
-        email: user.email,
         username: user.username,
-        mobileNumber: user.mobileNumber,
         role: user.role,
+        organization: user.organization,
         lastLogin: user.lastLogin,
       },
       token,
-      expiresIn: 7 * 24 * 60 * 60, // 7 days in seconds
     },
   });
 });
@@ -171,9 +128,7 @@ const verifyToken = asyncHandler(async (req, res) => {
     data: {
       user: {
         id: user._id,
-        email: user.email,
         username: user.username,
-        mobileNumber: user.mobileNumber,
         role: user.role,
         lastLogin: user.lastLogin,
         isActive: user.isActive,
@@ -190,7 +145,7 @@ const logout = asyncHandler(async (req, res) => {
   // by removing the token. We can log this event.
 
   console.log(
-    `User ${req.user.email} logged out at ${new Date().toISOString()}`,
+    `User ${req.user.username} logged out at ${new Date().toISOString()}`,
   );
 
   res.json({
@@ -215,9 +170,7 @@ const getProfile = asyncHandler(async (req, res) => {
     data: {
       user: {
         id: user._id,
-        email: user.email,
         username: user.username,
-        mobileNumber: user.mobileNumber,
         role: user.role,
         lastLogin: user.lastLogin,
         profileImage: user.profileImage,
@@ -234,6 +187,4 @@ module.exports = {
   verifyToken,
   logout,
   getProfile,
-  registerValidation,
-  loginValidation,
 };

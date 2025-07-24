@@ -2,6 +2,13 @@ const TruckEntry = require('../models/TruckEntry');
 const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { generatePdf, generateCsv } = require('../utils/exportGenerator');
+const path = require('path');
+const fs = require('fs-extra');
+const { v4: uuidv4 } = require('uuid');
+
+const TEMP_DIR = path.join(__dirname, '..', 'temp');
+const downloadTokens = new Map();
 
 // @desc    Get report data with filters
 // @route   GET /api/reports/data
@@ -226,158 +233,107 @@ const getReportData = asyncHandler(async (req, res) => {
 // @route   POST /api/reports/export
 // @access  Private
 const generateExportData = asyncHandler(async (req, res) => {
-  const {
-    startDate,
-    endDate,
-    entryType,
-    materialType,
-    truckNumber,
-    userId,
-    format = 'csv', // csv, pdf
-    includeCharts = false,
-  } = req.body;
+  try {
+    const { startDate, endDate, format = 'csv' } = req.body;
 
-  // Validate required fields
-  if (!startDate || !endDate) {
-    throw new AppError(
-      'Start date and end date are required',
-      400,
-      'VALIDATION_ERROR',
-    );
-  }
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400);
+    }
 
-  // Build filter
-  const filter = { status: 'active' };
-
-  // Role-based filtering
-  if (req.user.role !== 'owner') {
-    filter.userId = req.user.id;
-  } else if (userId) {
-    filter.userId = userId;
-  }
-
-  // Apply filters
-  if (entryType) filter.entryType = entryType;
-  if (materialType) filter.materialType = materialType;
-  if (truckNumber) filter.truckNumber = truckNumber.toUpperCase();
-
-  filter.entryDate = {
-    $gte: new Date(startDate),
-    $lte: new Date(endDate),
-  };
-
-  // Get all entries for export (no pagination)
-  const entries = await TruckEntry.find(filter)
-    .populate('userId', 'username email')
-    .sort({ entryDate: -1, createdAt: -1 });
-
-  // Get summary
-  const summary = await TruckEntry.getSummaryByDateRange(
-    new Date(startDate),
-    new Date(endDate),
-    req.user.role !== 'owner'
-      ? { userId: req.user.id }
-      : userId
-      ? { userId }
-      : {},
-  );
-
-  // Get current material rates for context
-  const currentRates = await MaterialRate.getCurrentRates();
-
-  // Format data for export
-  const exportData = {
-    reportInfo: {
-      title: 'CrusherMate Truck Entries Report',
-      generatedBy: req.user.username,
-      generatedAt: new Date().toISOString(),
-      dateRange: { startDate, endDate },
-      filters: { entryType, materialType, truckNumber, userId },
-    },
-    summary,
-    currentRates: currentRates.map(rate => ({
-      materialType: rate.materialType,
-      currentRate: rate.currentRate,
-      updatedAt: rate.updatedAt,
-    })),
-    entries: entries.map(entry => ({
-      id: entry._id,
-      date: entry.entryDate.toISOString().split('T')[0],
-      time: entry.entryTime,
-      truckNumber: entry.truckNumber,
-      entryType: entry.entryType,
-      materialType: entry.materialType || 'N/A',
-      units: entry.units,
-      ratePerUnit: entry.ratePerUnit,
-      totalAmount: entry.totalAmount,
-      user: entry.userId.username,
-      notes: entry.notes || '',
-    })),
-    statistics: {
-      totalEntries: entries.length,
-      totalSales: summary.totalSales,
-      totalExpenses: summary.totalRawStone,
-      netIncome: summary.netIncome,
-      salesCount: summary.salesCount,
-      expenseCount: summary.rawStoneCount,
-    },
-  };
-
-  // Add chart data if requested
-  if (includeCharts) {
-    // Daily breakdown
-    const dailyBreakdown = await TruckEntry.aggregate([
-      { $match: filter },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$entryDate' } },
-          totalAmount: { $sum: '$totalAmount' },
-          salesAmount: {
-            $sum: {
-              $cond: [{ $eq: ['$entryType', 'Sales'] }, '$totalAmount', 0],
-            },
-          },
-          expenseAmount: {
-            $sum: {
-              $cond: [{ $eq: ['$entryType', 'Raw Stone'] }, '$totalAmount', 0],
-            },
-          },
-        },
+    const filter = {
+      status: 'active',
+      entryDate: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
       },
-      { $sort: { _id: 1 } },
-    ]);
-
-    // Material breakdown
-    const materialBreakdown = await TruckEntry.aggregate([
-      {
-        $match: {
-          ...filter,
-          entryType: 'Sales',
-          materialType: { $ne: null },
-        },
-      },
-      {
-        $group: {
-          _id: '$materialType',
-          totalAmount: { $sum: '$totalAmount' },
-          totalUnits: { $sum: '$units' },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { totalAmount: -1 } },
-    ]);
-
-    exportData.charts = {
-      dailyBreakdown,
-      materialBreakdown,
     };
+    if (req.user.role !== 'owner') {
+      filter.userId = req.user.id;
+    }
+
+    const entries = await TruckEntry.find(filter)
+      .populate('userId', 'username email')
+      .sort({ entryDate: -1 });
+
+    const summary = await TruckEntry.getSummaryByDateRange(
+      new Date(startDate),
+      new Date(endDate),
+      filter,
+    );
+
+    const exportData = {
+      reportInfo: {
+        title: `CrusherMate Report (${format.toUpperCase()})`,
+        generatedBy: req.user.username,
+        dateRange: { startDate, endDate },
+      },
+      summary,
+      entries: entries.map(entry => ({
+        date: entry.entryDate.toISOString().split('T')[0],
+        time: entry.entryTime,
+        truckNumber: entry.truckNumber,
+        entryType: entry.entryType,
+        materialType: entry.materialType || 'N/A',
+        units: entry.units,
+        ratePerUnit: entry.ratePerUnit,
+        totalAmount: entry.totalAmount,
+      })),
+    };
+
+    let fileId;
+    if (format === 'pdf') {
+      fileId = await generatePdf(exportData);
+    } else {
+      fileId = await generateCsv(exportData);
+    }
+
+    const token = uuidv4();
+    downloadTokens.set(token, fileId);
+
+    // Token expires in 1 minute
+    setTimeout(() => {
+      downloadTokens.delete(token);
+    }, 60000);
+
+    res.json({
+      success: true,
+      message: `Export data generated successfully in ${format.toUpperCase()} format`,
+      data: { token, fileId },
+    });
+  } catch (error) {
+    console.error('--- EXPORT ERROR ---', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export data.',
+      error: error.message,
+    });
+  }
+});
+
+const downloadExportedFile = asyncHandler(async (req, res) => {
+  const { fileId } = req.params;
+  const { token } = req.query;
+  const expectedFileId = downloadTokens.get(token);
+
+  if (!expectedFileId || expectedFileId !== fileId) {
+    throw new AppError('Invalid or expired download link', 403, 'FORBIDDEN');
   }
 
-  res.json({
-    success: true,
-    message: `Export data generated successfully in ${format.toUpperCase()} format`,
-    data: exportData,
-  });
+  // Invalidate the token
+  downloadTokens.delete(token);
+
+  const filePath = path.join(TEMP_DIR, fileId);
+
+  if (await fs.pathExists(filePath)) {
+    res.download(filePath, err => {
+      if (err) {
+        console.error('Error downloading file:', err);
+      }
+      fs.remove(filePath);
+    });
+  } else {
+    throw new AppError('File not found', 404, 'NOT_FOUND');
+  }
 });
 
 // @desc    Get report templates
@@ -445,4 +401,5 @@ module.exports = {
   getReportData,
   generateExportData,
   getReportTemplates,
+  downloadExportedFile,
 };

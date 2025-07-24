@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const AppError = require('../utils/AppError');
 
 // JWT secret key
 const JWT_SECRET =
@@ -7,109 +8,60 @@ const JWT_SECRET =
   'crushermate_super_secret_key_2024_change_in_production';
 
 // Generate JWT token
-const generateToken = (userId, email, role) => {
-  return jwt.sign({ userId, email, role }, JWT_SECRET, {
+const generateToken = (userId, username, role, organizationId) => {
+  const payload = {
+    user: {
+      id: userId,
+      username,
+      role,
+      organizationId,
+    },
+  };
+
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    issuer: 'crushermate-api',
-    audience: 'crushermate-app',
   });
 };
 
 // Verify JWT token middleware
-const authenticateToken = async (req, res, next) => {
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return next(
+      new AppError(
+        'Authentication token is missing or invalid',
+        401,
+        'AUTH_TOKEN_MISSING',
+      ),
+    );
+  }
+
+  const token = authHeader.split(' ')[1];
+
   try {
-    const authHeader = req.headers.authorization;
-    const token =
-      authHeader && authHeader.startsWith('Bearer ')
-        ? authHeader.substring(7)
-        : null;
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access token required',
-        error: 'MISSING_TOKEN',
-      });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Check if user still exists and is active
-    const user = await User.findById(decoded.userId).select('-password');
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found',
-        error: 'USER_NOT_FOUND',
-      });
-    }
-
-    if (!user.isActive) {
-      return res.status(401).json({
-        success: false,
-        message: 'User account is deactivated',
-        error: 'ACCOUNT_DEACTIVATED',
-      });
-    }
-
-    // Add user info to request
-    req.user = {
-      id: user._id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      mobileNumber: user.mobileNumber,
-    };
-
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded.user; // Attach user payload to the request
     next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token',
-        error: 'INVALID_TOKEN',
-      });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return next(new AppError('Token has expired', 401, 'TOKEN_EXPIRED'));
     }
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Token expired',
-        error: 'TOKEN_EXPIRED',
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: 'Authentication failed',
-      error: 'AUTH_ERROR',
-    });
+    return next(new AppError('Invalid token', 401, 'INVALID_TOKEN'));
   }
 };
 
-// Owner role authorization middleware
 const requireOwnerRole = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required',
-      error: 'NOT_AUTHENTICATED',
-    });
+  if (req.user && req.user.role === 'owner') {
+    return next();
   }
-
-  if (req.user.role !== 'owner') {
-    return res.status(403).json({
-      success: false,
-      message: 'Owner access required',
-      error: 'INSUFFICIENT_PERMISSIONS',
-    });
-  }
-
-  next();
+  return next(
+    new AppError(
+      'This action requires owner privileges.',
+      403,
+      'ACCESS_DENIED',
+    ),
+  );
 };
 
 // User role authorization middleware (owner or user)
@@ -174,10 +126,8 @@ const optionalAuth = async (req, res, next) => {
       if (user && user.isActive) {
         req.user = {
           id: user._id,
-          email: user.email,
           username: user.username,
           role: user.role,
-          mobileNumber: user.mobileNumber,
         };
       }
     }
