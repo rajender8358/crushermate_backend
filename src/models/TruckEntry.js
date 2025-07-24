@@ -113,11 +113,13 @@ truckEntrySchema.index({ status: 1, entryDate: -1 });
 
 // Virtual for formatted entry date
 truckEntrySchema.virtual('formattedDate').get(function () {
+  if (!this.entryDate) return '';
   return this.entryDate.toLocaleDateString('en-IN');
 });
 
 // Virtual for formatted total amount
 truckEntrySchema.virtual('formattedAmount').get(function () {
+  if (!this.totalAmount) return '₹0';
   return `₹${this.totalAmount.toLocaleString('en-IN')}`;
 });
 

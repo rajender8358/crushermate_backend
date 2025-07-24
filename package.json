@@ -9,7 +9,8 @@
     "build": "echo 'Build completed - Node.js app ready for deployment'",
     "test": "jest",
     "lint": "eslint src/",
-    "clean": "rm -rf node_modules package-lock.json && npm install"
+    "clean": "rm -rf node_modules package-lock.json && npm install",
+    "seed-prod": "node seed-production.js"
   },
   "engines": {
     "node": ">=18.0.0",

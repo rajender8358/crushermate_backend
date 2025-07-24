@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
 const TruckEntry = require('../models/TruckEntry');
+const Organization = require('../models/Organization');
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -22,8 +23,8 @@ const connectDB = async () => {
   }
 };
 
-// Seed admin user
-const seedAdminUser = async () => {
+// Seed organization and admin user
+const seedOrganizationAndAdmin = async () => {
   try {
     const adminEmail = process.env.ADMIN_EMAIL || 'raj@gmail.com';
     const adminPassword = process.env.ADMIN_PASSWORD || 'Test@123';
@@ -37,7 +38,7 @@ const seedAdminUser = async () => {
       return existingAdmin;
     }
 
-    // Create admin user
+    // Create admin user first (without organization)
     const adminUser = await User.create({
       email: adminEmail,
       password: adminPassword,
@@ -45,6 +46,19 @@ const seedAdminUser = async () => {
       mobileNumber: '9876543210',
       role: 'owner',
     });
+
+    // Create organization with owner
+    const organization = await Organization.create({
+      name: 'CrusherMate Operations',
+      owner: adminUser._id,
+      members: [adminUser._id],
+    });
+
+    console.log(`✅ Organization created: ${organization.name}`);
+
+    // Update admin user with organization
+    adminUser.organization = organization._id;
+    await adminUser.save();
 
     console.log(`✅ Admin user created: ${adminEmail}`);
     return adminUser;
@@ -55,7 +69,7 @@ const seedAdminUser = async () => {
 };
 
 // Seed material rates
-const seedMaterialRates = async adminUserId => {
+const seedMaterialRates = async adminUser => {
   try {
     const defaultRates = [
       {
@@ -78,13 +92,14 @@ const seedMaterialRates = async adminUserId => {
     for (const rate of defaultRates) {
       const existingRate = await MaterialRate.findOne({
         materialType: rate.materialType,
-        isActive: true,
+        organization: adminUser.organization,
       });
 
       if (!existingRate) {
         await MaterialRate.create({
           ...rate,
-          updatedBy: adminUserId,
+          organization: adminUser.organization,
+          updatedBy: adminUser._id,
           effectiveDate: new Date(),
         });
         console.log(
@@ -103,7 +118,7 @@ const seedMaterialRates = async adminUserId => {
 };
 
 // Seed sample truck entries
-const seedSampleTruckEntries = async adminUserId => {
+const seedSampleTruckEntries = async adminUser => {
   try {
     const existingEntries = await TruckEntry.countDocuments({
       status: 'active',
@@ -118,7 +133,8 @@ const seedSampleTruckEntries = async adminUserId => {
 
     const sampleEntries = [
       {
-        userId: adminUserId,
+        userId: adminUser._id,
+        organization: adminUser.organization,
         truckNumber: 'KA01AB1234',
         entryType: 'Sales',
         materialType: 'M-Sand',
@@ -129,7 +145,8 @@ const seedSampleTruckEntries = async adminUserId => {
         notes: 'Sample sales entry',
       },
       {
-        userId: adminUserId,
+        userId: adminUser._id,
+        organization: adminUser.organization,
         truckNumber: 'KA02CD5678',
         entryType: 'Raw Stone',
         materialType: null,
@@ -140,7 +157,8 @@ const seedSampleTruckEntries = async adminUserId => {
         notes: 'Sample raw stone entry',
       },
       {
-        userId: adminUserId,
+        userId: adminUser._id,
+        organization: adminUser.organization,
         truckNumber: 'KA03EF9012',
         entryType: 'Sales',
         materialType: 'P-Sand',
@@ -151,7 +169,8 @@ const seedSampleTruckEntries = async adminUserId => {
         notes: 'Sample P-Sand sales',
       },
       {
-        userId: adminUserId,
+        userId: adminUser._id,
+        organization: adminUser.organization,
         truckNumber: 'KA04GH3456',
         entryType: 'Sales',
         materialType: 'Blue Metal',
@@ -162,7 +181,8 @@ const seedSampleTruckEntries = async adminUserId => {
         notes: 'Sample Blue Metal sales',
       },
       {
-        userId: adminUserId,
+        userId: adminUser._id,
+        organization: adminUser.organization,
         truckNumber: 'KA05IJ7890',
         entryType: 'Raw Stone',
         materialType: null,
@@ -183,7 +203,7 @@ const seedSampleTruckEntries = async adminUserId => {
 };
 
 // Create a test user
-const seedTestUser = async () => {
+const seedTestUser = async adminUser => {
   try {
     const testEmail = 'test@example.com';
 
@@ -200,6 +220,7 @@ const seedTestUser = async () => {
       username: 'testuser',
       mobileNumber: '9123456789',
       role: 'user',
+      organization: adminUser.organization,
     });
 
     console.log(`✅ Test user created: ${testEmail}`);
@@ -217,17 +238,17 @@ const seedDatabase = async () => {
 
     await connectDB();
 
-    // Seed admin user
-    const adminUser = await seedAdminUser();
+    // Seed admin user and organization
+    const adminUser = await seedOrganizationAndAdmin();
 
     // Seed test user
-    const testUser = await seedTestUser();
+    const testUser = await seedTestUser(adminUser);
 
     // Seed material rates
-    await seedMaterialRates(adminUser._id);
+    await seedMaterialRates(adminUser);
 
     // Seed sample truck entries
-    await seedSampleTruckEntries(adminUser._id);
+    await seedSampleTruckEntries(adminUser);
 
     console.log('🎉 Database seeding completed successfully!');
     console.log('\n📋 Summary:');
@@ -265,6 +286,7 @@ const clearDatabase = async () => {
       User.deleteMany({}),
       MaterialRate.deleteMany({}),
       TruckEntry.deleteMany({}),
+      Organization.deleteMany({}),
     ]);
 
     console.log('✅ Database cleared successfully');
@@ -301,7 +323,7 @@ switch (command) {
 module.exports = {
   seedDatabase,
   clearDatabase,
-  seedAdminUser,
+  seedOrganizationAndAdmin,
   seedMaterialRates,
   seedSampleTruckEntries,
 };
