@@ -2,6 +2,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const User = require('../models/User');
 const Organization = require('../models/Organization');
 const { generateToken } = require('../middleware/auth');
+const bcrypt = require('bcryptjs'); // Added missing import for bcrypt
 
 // @desc    Register new user
 // @route   POST /api/auth/register
@@ -70,45 +71,85 @@ const login = asyncHandler(async (req, res) => {
     );
   }
 
-  const user = await User.findOne({ username: username.toLowerCase() })
-    .populate('organization')
-    .select('+password');
+  console.log(`🔐 Login attempt for username: ${username}`);
 
-  if (!user || !(await user.comparePassword(password))) {
-    throw new AppError(
-      'Invalid username or password',
-      401,
-      'INVALID_CREDENTIALS',
+  try {
+    // Use optimized query method with timeout handling
+    const user = await Promise.race([
+      User.findByUsernameForLogin(username.toLowerCase()),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database query timeout')), 10000),
+      ),
+    ]);
+
+    if (!user) {
+      console.log(`❌ User not found: ${username}`);
+      throw new AppError(
+        'Invalid username or password',
+        401,
+        'INVALID_CREDENTIALS',
+      );
+    }
+
+    console.log(`✅ User found: ${user.username}, role: ${user.role}`);
+
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      console.log(`❌ Invalid password for user: ${username}`);
+      throw new AppError(
+        'Invalid username or password',
+        401,
+        'INVALID_CREDENTIALS',
+      );
+    }
+
+    if (!user.isActive) {
+      console.log(`❌ Account deactivated for user: ${username}`);
+      throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
+    }
+
+    const token = generateToken(
+      user._id,
+      user.username,
+      user.role,
+      user.organization?._id || user.organization,
     );
-  }
 
-  if (!user.isActive) {
-    throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
-  }
+    // Update last login asynchronously (don't wait for it)
+    User.findByIdAndUpdate(
+      user._id,
+      { lastLogin: new Date() },
+      { new: false },
+    ).catch(err => console.error('Failed to update last login:', err));
 
-  const token = generateToken(
-    user._id,
-    user.username,
-    user.role,
-    user.organization._id,
-  );
+    console.log(`✅ Login successful for user: ${username}`);
 
-  await user.updateLastLogin();
-
-  res.json({
-    success: true,
-    message: 'Login successful',
-    data: {
-      user: {
-        id: user._id,
-        username: user.username,
-        role: user.role,
-        organization: user.organization,
-        lastLogin: user.lastLogin,
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        user: {
+          id: user._id,
+          username: user.username,
+          role: user.role,
+          organization: user.organization,
+          lastLogin: user.lastLogin,
+        },
+        token,
       },
-      token,
-    },
-  });
+    });
+  } catch (error) {
+    if (error.message === 'Database query timeout') {
+      console.error(`⏰ Database timeout during login for user: ${username}`);
+      throw new AppError(
+        'Login timeout - please try again',
+        408,
+        'LOGIN_TIMEOUT',
+      );
+    }
+    throw error;
+  }
 });
 
 // @desc    Verify JWT token
