@@ -134,6 +134,7 @@ const login = asyncHandler(async (req, res) => {
           username: user.username,
           role: user.role,
           organization: user.organization,
+          organizationName: user.organization?.name || 'Unknown Organization',
           lastLogin: user.lastLogin,
         },
         token,

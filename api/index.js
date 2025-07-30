@@ -99,7 +99,7 @@ app.use('/api/material-rates', authenticateToken, materialRateRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
-app.use('/api/reports', authenticateToken, reportRoutes);
+app.use('/api/reports', reportRoutes); // Remove global auth for reports
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {

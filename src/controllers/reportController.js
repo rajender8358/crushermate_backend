@@ -2,7 +2,8 @@ const TruckEntry = require('../models/TruckEntry');
 const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
-const { generatePdf, generateCsv } = require('../utils/exportGenerator');
+const { generatePdf } = require('../utils/exportGenerator');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs-extra');
 const { v4: uuidv4 } = require('uuid');
@@ -231,10 +232,16 @@ const getReportData = asyncHandler(async (req, res) => {
 
 // @desc    Generate export data
 // @route   POST /api/reports/export
-// @access  Private
+// @access  Public (no authentication required)
 const generateExportData = asyncHandler(async (req, res) => {
   try {
-    const { startDate, endDate, format = 'csv' } = req.body;
+    // Handle both POST (body) and GET (query) requests
+    const {
+      startDate,
+      endDate,
+      format = 'csv',
+      organizationId,
+    } = req.method === 'POST' ? req.body : req.query;
 
     if (!startDate || !endDate) {
       throw new AppError('Start date and end date are required', 400);
@@ -247,8 +254,28 @@ const generateExportData = asyncHandler(async (req, res) => {
         $lte: new Date(endDate),
       },
     };
-    if (req.user.role !== 'owner') {
-      filter.userId = req.user.id;
+
+    // Filter by organization if provided
+    if (organizationId) {
+      console.log(
+        '🔍 Organization ID received:',
+        organizationId,
+        'Type:',
+        typeof organizationId,
+      );
+
+      // Validate that organizationId is a valid ObjectId
+      const mongoose = require('mongoose');
+      if (!mongoose.Types.ObjectId.isValid(organizationId)) {
+        console.log('❌ Invalid organization ID format:', organizationId);
+        // Instead of throwing error, just skip organization filtering
+        console.log('⚠️ Skipping organization filtering due to invalid ID');
+      } else {
+        console.log('✅ Valid organization ID, applying filter');
+        filter.organization = organizationId;
+      }
+    } else {
+      console.log('⚠️ No organization ID provided, showing all data');
     }
 
     const entries = await TruckEntry.find(filter)
@@ -258,13 +285,13 @@ const generateExportData = asyncHandler(async (req, res) => {
     const summary = await TruckEntry.getSummaryByDateRange(
       new Date(startDate),
       new Date(endDate),
-      filter,
+      {}, // No user filtering for PDF export
     );
 
     const exportData = {
       reportInfo: {
         title: `CrusherMate Report (${format.toUpperCase()})`,
-        generatedBy: req.user.username,
+        generatedBy: 'CrusherMate System',
         dateRange: { startDate, endDate },
       },
       summary,
@@ -280,26 +307,20 @@ const generateExportData = asyncHandler(async (req, res) => {
       })),
     };
 
-    let fileId;
-    if (format === 'pdf') {
-      fileId = await generatePdf(exportData);
-    } else {
-      fileId = await generateCsv(exportData);
+    // Only support PDF format
+    if (format !== 'pdf') {
+      throw new AppError('Only PDF format is supported', 400, 'INVALID_FORMAT');
     }
 
-    const token = uuidv4();
-    downloadTokens.set(token, fileId);
+    const pdfBuffer = await generatePdf(exportData);
+    const fileName = `CrusherMate_Report_${
+      new Date().toISOString().split('T')[0]
+    }.pdf`;
 
-    // Token expires in 1 minute
-    setTimeout(() => {
-      downloadTokens.delete(token);
-    }, 60000);
-
-    res.json({
-      success: true,
-      message: `Export data generated successfully in ${format.toUpperCase()} format`,
-      data: { token, fileId },
-    });
+    // Return PDF directly
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(pdfBuffer);
   } catch (error) {
     console.error('--- EXPORT ERROR ---', error);
     res.status(500).json({
@@ -307,32 +328,6 @@ const generateExportData = asyncHandler(async (req, res) => {
       message: 'Failed to export data.',
       error: error.message,
     });
-  }
-});
-
-const downloadExportedFile = asyncHandler(async (req, res) => {
-  const { fileId } = req.params;
-  const { token } = req.query;
-  const expectedFileId = downloadTokens.get(token);
-
-  if (!expectedFileId || expectedFileId !== fileId) {
-    throw new AppError('Invalid or expired download link', 403, 'FORBIDDEN');
-  }
-
-  // Invalidate the token
-  downloadTokens.delete(token);
-
-  const filePath = path.join(TEMP_DIR, fileId);
-
-  if (await fs.pathExists(filePath)) {
-    res.download(filePath, err => {
-      if (err) {
-        console.error('Error downloading file:', err);
-      }
-      fs.remove(filePath);
-    });
-  } else {
-    throw new AppError('File not found', 404, 'NOT_FOUND');
   }
 });
 
@@ -401,5 +396,4 @@ module.exports = {
   getReportData,
   generateExportData,
   getReportTemplates,
-  downloadExportedFile,
 };
