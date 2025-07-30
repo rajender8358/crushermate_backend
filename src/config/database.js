@@ -10,17 +10,32 @@ const connectDB = async () => {
     console.log('🔗 Connecting to MongoDB...');
     console.log('🌐 URI:', mongoURI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
 
-    // Simplified connection options for better compatibility
-    await mongoose.connect(mongoURI, {
+    // Enhanced connection options for better performance and reliability
+    const connectionOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000, // Increased timeout
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS:
+        parseInt(process.env.DB_SERVER_SELECTION_TIMEOUT) || 15000, // Increased timeout
+      socketTimeoutMS: parseInt(process.env.DB_SOCKET_TIMEOUT) || 45000,
+      connectTimeoutMS: parseInt(process.env.DB_CONNECT_TIMEOUT) || 30000,
+      maxPoolSize: parseInt(process.env.DB_MAX_POOL_SIZE) || 10,
+      minPoolSize: parseInt(process.env.DB_MIN_POOL_SIZE) || 2,
+      maxIdleTimeMS: 30000,
       dbName: 'CrusherMate', // Explicitly set database name
-    });
+      bufferCommands: false, // Disable mongoose buffering
+    };
+
+    await mongoose.connect(mongoURI, connectionOptions);
 
     console.log('✅ MongoDB connected successfully');
     console.log('📊 Database:', mongoose.connection.name);
+    console.log('🔧 Connection Options:', {
+      serverSelectionTimeoutMS: connectionOptions.serverSelectionTimeoutMS,
+      socketTimeoutMS: connectionOptions.socketTimeoutMS,
+      connectTimeoutMS: connectionOptions.connectTimeoutMS,
+      maxPoolSize: connectionOptions.maxPoolSize,
+      minPoolSize: connectionOptions.minPoolSize,
+    });
 
     // Handle connection events
     mongoose.connection.on('error', err => {
@@ -33,6 +48,11 @@ const connectDB = async () => {
 
     mongoose.connection.on('reconnected', () => {
       console.log('🔄 MongoDB reconnected');
+    });
+
+    // Monitor connection pool
+    mongoose.connection.on('connected', () => {
+      console.log('🔗 MongoDB connection pool ready');
     });
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
@@ -48,9 +68,14 @@ const connectDB = async () => {
         await mongoose.connect(correctedURI, {
           useNewUrlParser: true,
           useUnifiedTopology: true,
-          serverSelectionTimeoutMS: 10000,
+          serverSelectionTimeoutMS: 15000,
           socketTimeoutMS: 45000,
+          connectTimeoutMS: 30000,
+          maxPoolSize: 10,
+          minPoolSize: 2,
+          maxIdleTimeMS: 30000,
           dbName: 'CrusherMate',
+          bufferCommands: false,
         });
         console.log('✅ MongoDB connected successfully with corrected case');
         console.log('📊 Database:', mongoose.connection.name);

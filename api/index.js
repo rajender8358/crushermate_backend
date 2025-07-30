@@ -6,20 +6,20 @@ const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-// Force deployment with updated environment variables
-const connectDB = require('./config/database');
-const { errorHandler } = require('./middleware/errorHandler');
-const { authenticateToken } = require('./middleware/auth');
+// Import middleware and routes
+const connectDB = require('../src/config/database');
+const { errorHandler } = require('../src/middleware/errorHandler');
+const { authenticateToken } = require('../src/middleware/auth');
 
 // Import routes
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const truckEntryRoutes = require('./routes/truckEntryRoutes');
-const materialRateRoutes = require('./routes/materialRateRoutes');
-const organizationRoutes = require('./routes/organizationRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const configRoutes = require('./routes/configRoutes');
-const reportRoutes = require('./routes/reportRoutes');
+const authRoutes = require('../src/routes/authRoutes');
+const userRoutes = require('../src/routes/userRoutes');
+const truckEntryRoutes = require('../src/routes/truckEntryRoutes');
+const materialRateRoutes = require('../src/routes/materialRateRoutes');
+const organizationRoutes = require('../src/routes/organizationRoutes');
+const dashboardRoutes = require('../src/routes/dashboardRoutes');
+const configRoutes = require('../src/routes/configRoutes');
+const reportRoutes = require('../src/routes/reportRoutes');
 
 const app = express();
 
@@ -32,11 +32,10 @@ const initializeServer = async () => {
   } catch (error) {
     console.error('❌ Server initialization failed:', error.message);
     console.error('🔍 Full error:', error);
-    // Don't exit in serverless environment - just log the error
   }
 };
 
-// Initialize server but don't block startup - use setTimeout to avoid blocking
+// Initialize server but don't block startup
 setTimeout(() => {
   initializeServer().catch(error => {
     console.error('❌ Server initialization error:', error);
@@ -57,18 +56,12 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// CORS configuration
+// CORS configuration for production
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',')
-      : [
-          'http://localhost:8081',
-          'http://10.0.2.2:8081',
-          'http://192.168.29.243:8081',
-          'http://49.37.152.235:8081',
-          '*',
-        ], // Allow all origins for testing
+      : ['*'], // Allow all origins for production
     credentials: process.env.CORS_CREDENTIALS === 'true' || true,
   }),
 );
@@ -98,38 +91,12 @@ app.get('/ping', (req, res) => {
   });
 });
 
-// Test MongoDB connection endpoint
-app.get('/test-db', async (req, res) => {
-  try {
-    if (mongoose.connection.readyState === 1) {
-      res.status(200).json({
-        success: true,
-        message: 'MongoDB connection successful',
-        database: mongoose.connection.name,
-        state: mongoose.connection.readyState,
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'MongoDB connection failed',
-        state: mongoose.connection.readyState,
-      });
-    }
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Database test failed',
-      error: error.message,
-    });
-  }
-});
-
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/truck-entries', authenticateToken, truckEntryRoutes);
 app.use('/api/material-rates', authenticateToken, materialRateRoutes);
-app.use('/api/organizations', organizationRoutes);
+app.use('/api/organizations', authenticateToken, organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
 app.use('/api/reports', authenticateToken, reportRoutes);
@@ -155,7 +122,7 @@ app.get('/api/health', async (req, res) => {
           name: mongoose.connection.name || 'unknown',
           host: mongoose.connection.host || 'unknown',
         },
-        environment: process.env.NODE_ENV || 'development',
+        environment: process.env.NODE_ENV || 'production',
         version: '1.0.0',
       },
     });
@@ -212,22 +179,9 @@ app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found',
+    path: req.originalUrl,
   });
 });
 
-const PORT = process.env.PORT || 3000;
-
-// For Vercel serverless functions
-if (process.env.NODE_ENV === 'production') {
-  // Export for Vercel
-  module.exports = app;
-} else {
-  // Start server for local development
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 CrusherMate API Server Started!`);
-    console.log(`📡 Server: http://localhost:${PORT}`);
-    console.log(`🏥 Health: http://localhost:${PORT}/health`);
-    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`⏰ Started at: ${new Date().toLocaleString()}`);
-  });
-}
+// Export for Vercel serverless
+module.exports = app;

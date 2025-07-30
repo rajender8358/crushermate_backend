@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       minlength: [3, 'Username must be at least 3 characters long'],
       maxlength: [15, 'Username cannot exceed 15 characters'],
+      index: true, // Add index for faster queries
     },
     password: {
       type: String,
@@ -26,14 +27,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['owner', 'user'],
       default: 'user',
+      index: true, // Add index for role-based queries
     },
     isActive: {
       type: Boolean,
       default: true,
+      index: true, // Add index for active user queries
     },
     lastLogin: {
       type: Date,
       default: null,
+      index: true, // Add index for login tracking
     },
     profileImage: {
       type: String,
@@ -47,9 +51,10 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-// Index for better query performance
-userSchema.index({ username: 1 });
-userSchema.index({ role: 1 });
+// Compound indexes for better query performance
+userSchema.index({ username: 1, isActive: 1 });
+userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ organization: 1, isActive: 1 });
 
 // Virtual for user's full display name
 userSchema.virtual('displayName').get(function () {
@@ -78,15 +83,30 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   }
 };
 
-// Update last login
+// Update last login with optimized save
 userSchema.methods.updateLastLogin = function () {
   this.lastLogin = new Date();
-  return this.save({ validateBeforeSave: false });
+  return this.save({ validateBeforeSave: false, lean: true });
 };
 
-// Static method to get active users
+// Static method to get active users with optimized query
 userSchema.statics.getActiveUsers = function () {
-  return this.find({ isActive: true }).select('-password');
+  return this.find({ isActive: true })
+    .select('-password')
+    .lean() // Use lean queries for better performance
+    .exec();
+};
+
+// Optimized findOne method for login
+userSchema.statics.findByUsernameForLogin = function (username) {
+  return this.findOne({
+    username: username.toLowerCase(),
+    isActive: true,
+  })
+    .populate('organization')
+    .select('+password')
+    .lean()
+    .exec();
 };
 
 // Remove password from JSON output
