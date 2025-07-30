@@ -22,7 +22,7 @@ const connectDB = async () => {
       minPoolSize: parseInt(process.env.DB_MIN_POOL_SIZE) || 2,
       maxIdleTimeMS: 30000,
       dbName: 'CrusherMate', // Explicitly set database name
-      bufferCommands: false, // Disable mongoose buffering
+      bufferCommands: true, // Enable mongoose buffering to prevent connection issues
     };
 
     await mongoose.connect(mongoURI, connectionOptions);
@@ -75,7 +75,7 @@ const connectDB = async () => {
           minPoolSize: 2,
           maxIdleTimeMS: 30000,
           dbName: 'CrusherMate',
-          bufferCommands: false,
+          bufferCommands: true, // Enable buffering
         });
         console.log('✅ MongoDB connected successfully with corrected case');
         console.log('📊 Database:', mongoose.connection.name);
