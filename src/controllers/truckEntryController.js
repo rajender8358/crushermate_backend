@@ -23,6 +23,13 @@ const createTruckEntryValidation = [
       }
       return true;
     }),
+  body('truckName')
+    .notEmpty()
+    .withMessage('Truck name is required')
+    .isLength({ max: 20 })
+    .withMessage('Truck name must be 20 characters or less')
+    .matches(/^[A-Za-z\s]+$/)
+    .withMessage('Truck name must contain only letters and spaces'),
   body('entryType')
     .isIn(['Sales', 'Raw Stone'])
     .withMessage('Entry type must be either Sales or Raw Stone'),
@@ -65,6 +72,12 @@ const updateTruckEntryValidation = [
       }
       return true;
     }),
+  body('truckName')
+    .optional()
+    .isLength({ max: 20 })
+    .withMessage('Truck name must be 20 characters or less')
+    .matches(/^[A-Za-z\s]+$/)
+    .withMessage('Truck name must contain only letters and spaces'),
   body('entryType')
     .optional()
     .isIn(['Sales', 'Raw Stone'])
@@ -104,6 +117,7 @@ const createTruckEntry = asyncHandler(async (req, res) => {
   const { organizationId, id: userId } = req.user;
   const {
     truckNumber,
+    truckName,
     entryType,
     materialType,
     units,
@@ -118,7 +132,7 @@ const createTruckEntry = asyncHandler(async (req, res) => {
   }
 
   // Basic validation
-  if (!truckNumber || !entryType || !units || !ratePerUnit) {
+  if (!truckNumber || !truckName || !entryType || !units || !ratePerUnit) {
     throw new AppError('Missing required fields', 400, 'VALIDATION_ERROR');
   }
 
@@ -126,6 +140,7 @@ const createTruckEntry = asyncHandler(async (req, res) => {
     organization: organizationId,
     userId,
     truckNumber,
+    truckName,
     entryType,
     materialType,
     units,

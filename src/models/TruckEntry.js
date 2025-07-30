@@ -74,8 +74,15 @@ const truckEntrySchema = new mongoose.Schema(
       type: String,
       required: false, // Not required from frontend
       default: function () {
+        // Get current time in IST
         const now = new Date();
-        return now.toTimeString().slice(0, 5); // "HH:MM"
+        const istTime = now.toLocaleTimeString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        return istTime; // Returns "HH:MM" format in IST
       },
       match: [
         /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,

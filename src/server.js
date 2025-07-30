@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// Set timezone to IST for consistent time handling
+process.env.TZ = 'Asia/Kolkata';
+
 // Force deployment with updated environment variables
 const connectDB = require('./config/database');
 const { errorHandler } = require('./middleware/errorHandler');

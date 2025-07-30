@@ -96,7 +96,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/truck-entries', authenticateToken, truckEntryRoutes);
 app.use('/api/material-rates', authenticateToken, materialRateRoutes);
-app.use('/api/organizations', authenticateToken, organizationRoutes);
+app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
 app.use('/api/reports', authenticateToken, reportRoutes);
