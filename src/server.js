@@ -23,6 +23,7 @@ const organizationRoutes = require('./routes/organizationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const configRoutes = require('./routes/configRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const downloadRoutes = require('./routes/downloadRoutes');
 
 const app = express();
 
@@ -135,6 +136,85 @@ app.use('/api/material-rates', authenticateToken, materialRateRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
+
+// Public download route (no authentication required) - MUST come before /api/reports
+app.use('/api/reports/download', downloadRoutes);
+
+// Test data route for debugging (no auth required)
+app.get('/api/test-data', async (req, res) => {
+  try {
+    const { startDate, endDate, organizationId } = req.query;
+
+    console.log('🔍 Test data request:', {
+      startDate,
+      endDate,
+      organizationId,
+    });
+
+    const TruckEntry = require('./models/TruckEntry');
+
+    const filter = {
+      status: 'active',
+    };
+
+    if (startDate && endDate) {
+      filter.entryDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    if (organizationId) {
+      filter.organization = organizationId;
+    }
+
+    console.log('🔍 Test filter:', JSON.stringify(filter, null, 2));
+
+    const entries = await TruckEntry.find(filter)
+      .populate('userId', 'username email')
+      .populate('organization', 'name')
+      .sort({ entryDate: -1 })
+      .limit(10);
+
+    console.log('🔍 Found entries:', entries.length);
+
+    const totalEntries = await TruckEntry.countDocuments(filter);
+    const totalByOrg = await TruckEntry.aggregate([
+      { $match: filter },
+      { $group: { _id: '$organization', count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        filter,
+        entries: entries.map(entry => ({
+          id: entry._id,
+          truckNumber: entry.truckNumber,
+          entryType: entry.entryType,
+          materialType: entry.materialType,
+          entryDate: entry.entryDate,
+          organization: entry.organization?.name || entry.organization,
+          user: entry.userId?.username || entry.userId,
+        })),
+        summary: {
+          totalEntries,
+          totalByOrg,
+          sampleEntries: entries.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('--- TEST DATA ERROR ---', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get test data.',
+      error: error.message,
+    });
+  }
+});
+
+// Reports routes - mount authenticated routes
 app.use('/api/reports', authenticateToken, reportRoutes);
 
 // Health check endpoint

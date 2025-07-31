@@ -23,6 +23,12 @@ const truckEntrySchema = new mongoose.Schema(
         'Please enter a valid truck number format (e.g., KA01AB1234)',
       ],
     },
+    truckName: {
+      type: String,
+      required: [true, 'Truck driver name is required'],
+      trim: true,
+      maxlength: [50, 'Truck driver name cannot exceed 50 characters'],
+    },
     entryType: {
       type: String,
       required: [true, 'Entry type is required'],
@@ -174,6 +180,11 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
     ...filters,
   };
 
+  console.log(
+    '🔍 Summary aggregation - Base match:',
+    JSON.stringify(baseMatch, null, 2),
+  );
+
   const summary = await this.aggregate([
     { $match: baseMatch },
     {
@@ -185,6 +196,8 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
       },
     },
   ]);
+
+  console.log('🔍 Summary aggregation - Raw result:', summary);
 
   // Format the summary
   const result = {
@@ -209,6 +222,41 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
   result.totalEntries = result.salesCount + result.rawStoneCount;
   result.netIncome =
     result.totalSales - result.totalRawStone - result.totalExpenses;
+
+  console.log('🔍 Summary aggregation - Final result:', result);
+
+  // Fallback: If aggregation returns 0, calculate manually
+  if (result.totalSales === 0 && result.totalRawStone === 0) {
+    console.log('🔍 Using fallback calculation...');
+    const entries = await this.find(baseMatch);
+    console.log('🔍 Fallback - Found entries:', entries.length);
+
+    let manualTotalSales = 0;
+    let manualTotalRawStone = 0;
+    let manualSalesCount = 0;
+    let manualRawStoneCount = 0;
+
+    entries.forEach(entry => {
+      const amount = entry.totalAmount || entry.units * entry.ratePerUnit;
+      if (entry.entryType === 'Sales') {
+        manualTotalSales += amount;
+        manualSalesCount++;
+      } else if (entry.entryType === 'Raw Stone') {
+        manualTotalRawStone += amount;
+        manualRawStoneCount++;
+      }
+    });
+
+    result.totalSales = manualTotalSales;
+    result.totalRawStone = manualTotalRawStone;
+    result.salesCount = manualSalesCount;
+    result.rawStoneCount = manualRawStoneCount;
+    result.totalEntries = manualSalesCount + manualRawStoneCount;
+    result.netIncome =
+      result.totalSales - result.totalRawStone - result.totalExpenses;
+
+    console.log('🔍 Fallback calculation result:', result);
+  }
 
   return result;
 };

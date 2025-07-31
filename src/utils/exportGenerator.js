@@ -128,6 +128,7 @@ const generatePdf = data => {
       'Date',
       'Time',
       'Truck No.',
+      'Truck Name',
       'Type',
       'Material',
       'Units',
@@ -135,12 +136,13 @@ const generatePdf = data => {
     ];
     const colPositions = [
       margin,
-      margin + 80,
-      margin + 140,
-      margin + 220,
+      margin + 70,
+      margin + 130,
+      margin + 200,
       margin + 280,
-      margin + 350,
-      margin + 400,
+      margin + 320,
+      margin + 380,
+      margin + 420,
     ];
 
     // Header row
@@ -178,12 +180,13 @@ const generatePdf = data => {
         .text(formatDate(entry.date), colPositions[0], currentY);
       doc.text(formatTime(entry.time), colPositions[1], currentY);
       doc.text(entry.truckNumber, colPositions[2], currentY);
-      doc.text(entry.entryType, colPositions[3], currentY);
-      doc.text(entry.materialType || 'N/A', colPositions[4], currentY);
-      doc.text(entry.units.toString(), colPositions[5], currentY);
+      doc.text(entry.truckName || 'N/A', colPositions[3], currentY);
+      doc.text(entry.entryType, colPositions[4], currentY);
+      doc.text(entry.materialType || 'N/A', colPositions[5], currentY);
+      doc.text(entry.units.toString(), colPositions[6], currentY);
       doc
         .font('Helvetica-Bold')
-        .text(formatCurrency(entry.totalAmount), colPositions[6], currentY);
+        .text(formatCurrency(entry.totalAmount), colPositions[7], currentY);
       doc.font('Helvetica');
 
       currentY += 25;

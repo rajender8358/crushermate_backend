@@ -24,7 +24,7 @@ const generateToken = (userId, username, role, organizationId) => {
 };
 
 // Verify JWT token middleware
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -42,6 +42,29 @@ const authenticateToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded.user; // Attach user payload to the request
+    
+    console.log('🔍 Auth middleware - Path:', req.path);
+    console.log('🔍 Auth middleware - User organizationId:', req.user.organizationId);
+    
+    // For certain routes that need organization data, populate it
+    if (req.path.includes('/reports/') && req.user.organizationId) {
+      console.log('🔍 Auth middleware - Populating organization for path:', req.path);
+      try {
+        const userWithOrg = await User.findById(req.user.id).populate('organization');
+        if (userWithOrg) {
+          req.user.organization = userWithOrg.organization;
+          console.log('🔍 Auth middleware - Organization populated:', userWithOrg.organization);
+        } else {
+          console.log('🔍 Auth middleware - User not found for population');
+        }
+      } catch (populateError) {
+        console.error('Failed to populate organization:', populateError);
+        // Continue without organization if populate fails
+      }
+    } else {
+      console.log('🔍 Auth middleware - Skipping organization population');
+    }
+    
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

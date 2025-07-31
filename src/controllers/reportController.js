@@ -232,15 +232,14 @@ const getReportData = asyncHandler(async (req, res) => {
 
 // @desc    Generate export data
 // @route   POST /api/reports/export
-// @access  Public (no authentication required)
+// @access  Private (requires authentication)
 const generateExportData = asyncHandler(async (req, res) => {
   try {
     // Handle both POST (body) and GET (query) requests
     const {
       startDate,
       endDate,
-      format = 'csv',
-      organizationId,
+      format = 'pdf',
     } = req.method === 'POST' ? req.body : req.query;
 
     if (!startDate || !endDate) {
@@ -255,43 +254,53 @@ const generateExportData = asyncHandler(async (req, res) => {
       },
     };
 
-    // Filter by organization if provided
-    if (organizationId) {
-      console.log(
-        '🔍 Organization ID received:',
-        organizationId,
-        'Type:',
-        typeof organizationId,
-      );
+    // Filter by user's organization
+    if (req.user.organization) {
+      console.log('🔍 User organization:', req.user.organization);
+      console.log('🔍 User organization type:', typeof req.user.organization);
 
-      // Validate that organizationId is a valid ObjectId
+      // Validate that organization is a valid ObjectId
       const mongoose = require('mongoose');
-      if (!mongoose.Types.ObjectId.isValid(organizationId)) {
-        console.log('❌ Invalid organization ID format:', organizationId);
-        // Instead of throwing error, just skip organization filtering
-        console.log('⚠️ Skipping organization filtering due to invalid ID');
-      } else {
+      if (mongoose.Types.ObjectId.isValid(req.user.organization)) {
         console.log('✅ Valid organization ID, applying filter');
-        filter.organization = organizationId;
+        filter.organization = req.user.organization;
+      } else {
+        console.log(
+          '❌ Invalid organization ID format:',
+          req.user.organization,
+        );
+        throw new AppError('Invalid organization configuration', 400);
       }
     } else {
-      console.log('⚠️ No organization ID provided, showing all data');
+      console.log('⚠️ No organization found for user');
+      throw new AppError('User organization not found', 400);
     }
+
+    // Role-based filtering
+    if (req.user.role !== 'owner') {
+      filter.userId = req.user.id;
+    }
+
+    console.log('🔍 Final filter:', JSON.stringify(filter, null, 2));
 
     const entries = await TruckEntry.find(filter)
       .populate('userId', 'username email')
       .sort({ entryDate: -1 });
 
+    console.log(`📊 Found ${entries.length} entries for organization`);
+
+    // Get summary for the filtered data
     const summary = await TruckEntry.getSummaryByDateRange(
       new Date(startDate),
       new Date(endDate),
-      {}, // No user filtering for PDF export
+      filter, // Pass the filter to get summary for the same data
     );
 
     const exportData = {
       reportInfo: {
         title: `CrusherMate Report (${format.toUpperCase()})`,
-        generatedBy: 'CrusherMate System',
+        generatedBy: req.user.username || 'CrusherMate System',
+        organization: req.user.organization,
         dateRange: { startDate, endDate },
       },
       summary,
@@ -307,25 +316,296 @@ const generateExportData = asyncHandler(async (req, res) => {
       })),
     };
 
-    // Only support PDF format
-    if (format !== 'pdf') {
-      throw new AppError('Only PDF format is supported', 400, 'INVALID_FORMAT');
+    if (format === 'pdf') {
+      const pdfBuffer = await generatePdf(exportData);
+      const fileName = `CrusherMate_Report_${
+        new Date().toISOString().split('T')[0]
+      }.pdf`;
+
+      // Return PDF directly
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`,
+      );
+      res.send(pdfBuffer);
+    } else if (format === 'csv') {
+      const { Parser } = require('json2csv');
+
+      // Define CSV fields
+      const fields = [
+        'date',
+        'time',
+        'truckNumber',
+        'truckName',
+        'entryType',
+        'materialType',
+        'units',
+        'ratePerUnit',
+        'totalAmount',
+      ];
+
+      const parser = new Parser({ fields });
+      const csv = parser.parse(exportData.entries);
+
+      const fileName = `CrusherMate_Report_${
+        new Date().toISOString().split('T')[0]
+      }.csv`;
+
+      // Return CSV directly
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`,
+      );
+      res.send(csv);
+    } else {
+      throw new AppError(
+        'Only PDF and CSV formats are supported',
+        400,
+        'INVALID_FORMAT',
+      );
     }
-
-    const pdfBuffer = await generatePdf(exportData);
-    const fileName = `CrusherMate_Report_${
-      new Date().toISOString().split('T')[0]
-    }.pdf`;
-
-    // Return PDF directly
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.send(pdfBuffer);
   } catch (error) {
     console.error('--- EXPORT ERROR ---', error);
     res.status(500).json({
       success: false,
       message: 'Failed to export data.',
+      error: error.message,
+    });
+  }
+});
+
+// @desc    Generate browser download URL (for PDF/CSV)
+// @route   POST /api/reports/browser-download
+// @access  Private (requires authentication)
+const generateBrowserDownload = asyncHandler(async (req, res) => {
+  try {
+    const { startDate, endDate, format = 'pdf' } = req.body;
+
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400);
+    }
+
+    console.log('🔍 User object:', req.user);
+    console.log('🔍 User organization:', req.user.organization);
+    console.log('🔍 Organization type:', typeof req.user.organization);
+    console.log('🔍 User organizationId:', req.user.organizationId);
+
+    // Use organizationId directly since it's always available
+    const organizationId = req.user.organizationId;
+
+    if (!organizationId) {
+      console.error('❌ No organization found for user:', req.user);
+      throw new AppError('User organization not found', 400);
+    }
+
+    console.log('🔍 Organization ID for download:', organizationId);
+
+    // Generate a temporary download token
+    const downloadToken = jwt.sign(
+      {
+        userId: req.user.id,
+        organization: organizationId,
+        startDate,
+        endDate,
+        format,
+        type: 'download',
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '5m' }, // Token expires in 5 minutes
+    );
+
+    // Store the download token
+    downloadTokens.set(downloadToken, {
+      userId: req.user.id,
+      organization: organizationId,
+      startDate,
+      endDate,
+      format,
+      createdAt: new Date(),
+    });
+
+    console.log('🔍 Download token created with organization:', organizationId);
+
+    // Return the download URL
+    const downloadUrl = `${req.protocol}://${req.get(
+      'host',
+    )}/api/reports/download/${downloadToken}`;
+
+    res.json({
+      success: true,
+      data: {
+        downloadUrl,
+        fileName: `CrusherMate_Report_${
+          new Date().toISOString().split('T')[0]
+        }.${format}`,
+      },
+    });
+  } catch (error) {
+    console.error('--- BROWSER DOWNLOAD ERROR ---', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate download URL.',
+      error: error.message,
+    });
+  }
+});
+
+// @desc    Download file using temporary token
+// @route   GET /api/reports/download/:token
+// @access  Public (uses temporary token)
+const downloadWithToken = asyncHandler(async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    console.log('🔍 Download token received:', token);
+
+    // Verify the download token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const downloadData = downloadTokens.get(token);
+
+    console.log('🔍 Decoded token:', decoded);
+    console.log('🔍 Download data:', downloadData);
+
+    if (!downloadData || decoded.type !== 'download') {
+      throw new AppError('Invalid or expired download token', 401);
+    }
+
+    // Clean up expired tokens (older than 5 minutes)
+    const now = new Date();
+    for (const [key, data] of downloadTokens.entries()) {
+      if (now - data.createdAt > 5 * 60 * 1000) {
+        downloadTokens.delete(key);
+      }
+    }
+
+    const filter = {
+      status: 'active',
+      entryDate: {
+        $gte: new Date(downloadData.startDate),
+        $lte: new Date(downloadData.endDate),
+      },
+      organization: downloadData.organization,
+    };
+
+    // Role-based filtering
+    if (decoded.userId !== downloadData.userId) {
+      filter.userId = downloadData.userId;
+    }
+
+    console.log('🔍 Final filter:', JSON.stringify(filter, null, 2));
+    console.log(
+      '🔍 Date range:',
+      downloadData.startDate,
+      'to',
+      downloadData.endDate,
+    );
+    console.log('🔍 Organization:', downloadData.organization);
+
+    const entries = await TruckEntry.find(filter)
+      .populate('userId', 'username email')
+      .sort({ entryDate: -1 });
+
+    console.log('🔍 Found entries:', entries.length);
+    console.log(
+      '🔍 Sample entry data:',
+      entries[0]
+        ? {
+            entryType: entries[0].entryType,
+            totalAmount: entries[0].totalAmount,
+            units: entries[0].units,
+            ratePerUnit: entries[0].ratePerUnit,
+            materialType: entries[0].materialType,
+          }
+        : 'No entries',
+    );
+
+    const summary = await TruckEntry.getSummaryByDateRange(
+      new Date(downloadData.startDate),
+      new Date(downloadData.endDate),
+      filter,
+    );
+
+    console.log('🔍 Summary:', summary);
+
+    const exportData = {
+      reportInfo: {
+        title: `CrusherMate Report (${downloadData.format.toUpperCase()})`,
+        generatedBy: 'CrusherMate System',
+        organization: downloadData.organization,
+        dateRange: {
+          startDate: downloadData.startDate,
+          endDate: downloadData.endDate,
+        },
+      },
+      summary,
+      entries: entries.map(entry => ({
+        date: entry.entryDate.toISOString().split('T')[0],
+        time: entry.entryTime,
+        truckNumber: entry.truckNumber,
+        truckName: entry.truckName || 'N/A',
+        entryType: entry.entryType,
+        materialType: entry.materialType || 'N/A',
+        units: entry.units,
+        ratePerUnit: entry.ratePerUnit,
+        totalAmount: entry.totalAmount,
+      })),
+    };
+
+    console.log('🔍 Export data entries count:', exportData.entries.length);
+
+    if (downloadData.format === 'pdf') {
+      const pdfBuffer = await generatePdf(exportData);
+      const fileName = `CrusherMate_Report_${
+        new Date().toISOString().split('T')[0]
+      }.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`,
+      );
+      res.send(pdfBuffer);
+    } else if (downloadData.format === 'csv') {
+      const { Parser } = require('json2csv');
+
+      const fields = [
+        'date',
+        'time',
+        'truckNumber',
+        'truckName',
+        'entryType',
+        'materialType',
+        'units',
+        'ratePerUnit',
+        'totalAmount',
+      ];
+
+      const parser = new Parser({ fields });
+      const csv = parser.parse(exportData.entries);
+
+      const fileName = `CrusherMate_Report_${
+        new Date().toISOString().split('T')[0]
+      }.csv`;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`,
+      );
+      res.send(csv);
+    } else {
+      throw new AppError('Only PDF and CSV formats are supported', 400);
+    }
+
+    // Clean up the token after successful download
+    downloadTokens.delete(token);
+  } catch (error) {
+    console.error('--- DOWNLOAD WITH TOKEN ERROR ---', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to download file.',
       error: error.message,
     });
   }
@@ -392,8 +672,85 @@ const getReportTemplates = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Test endpoint to check database data
+// @route   GET /api/reports/test-data
+// @access  Public (for debugging)
+const testDatabaseData = asyncHandler(async (req, res) => {
+  try {
+    const { startDate, endDate, organizationId } = req.query;
+
+    console.log('🔍 Test data request:', {
+      startDate,
+      endDate,
+      organizationId,
+    });
+
+    const filter = {
+      status: 'active',
+    };
+
+    if (startDate && endDate) {
+      filter.entryDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    if (organizationId) {
+      filter.organization = organizationId;
+    }
+
+    console.log('🔍 Test filter:', JSON.stringify(filter, null, 2));
+
+    const entries = await TruckEntry.find(filter)
+      .populate('userId', 'username email')
+      .populate('organization', 'name')
+      .sort({ entryDate: -1 })
+      .limit(10);
+
+    console.log('🔍 Found entries:', entries.length);
+
+    const totalEntries = await TruckEntry.countDocuments(filter);
+    const totalByOrg = await TruckEntry.aggregate([
+      { $match: filter },
+      { $group: { _id: '$organization', count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        filter,
+        entries: entries.map(entry => ({
+          id: entry._id,
+          truckNumber: entry.truckNumber,
+          entryType: entry.entryType,
+          materialType: entry.materialType,
+          entryDate: entry.entryDate,
+          organization: entry.organization?.name || entry.organization,
+          user: entry.userId?.username || entry.userId,
+        })),
+        summary: {
+          totalEntries,
+          totalByOrg,
+          sampleEntries: entries.length,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('--- TEST DATA ERROR ---', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get test data.',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = {
   getReportData,
   generateExportData,
   getReportTemplates,
+  generateBrowserDownload,
+  downloadWithToken,
+  testDatabaseData,
 };
