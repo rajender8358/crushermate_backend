@@ -137,6 +137,15 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
 
+// Test route for other-expenses debugging
+app.get('/api/other-expenses-test', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Other expenses test route is working',
+    user: req.user,
+  });
+});
+
 // Public download route (no authentication required) - MUST come before /api/reports
 app.use('/api/reports/download', downloadRoutes);
 
