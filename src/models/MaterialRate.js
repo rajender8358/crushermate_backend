@@ -10,7 +10,16 @@ const materialRateSchema = new mongoose.Schema(
     materialType: {
       type: String,
       required: [true, 'Material type is required'],
-      enum: ['M-Sand', 'P-Sand', 'Blue Metal', 'Raw Stone'],
+      enum: [
+        'M-Sand',
+        'P-Sand', 
+        'Blue Metal 0.5in',
+        'Blue Metal 0.75in',
+        'Jally',
+        'Kurunai',
+        'Mixed',
+        'Raw Stone'
+      ],
     },
     currentRate: {
       type: Number,

@@ -100,7 +100,14 @@ const generatePdf = data => {
         label: 'Raw Stone Cost',
         value: formatCurrency(data.summary.totalRawStone),
       },
-      { label: 'Net Profit', value: formatCurrency(data.summary.netIncome) },
+      {
+        label: 'Expenses',
+        value: formatCurrency(data.summary.totalOtherExpenses || 0),
+      },
+      { 
+        label: 'Net Profit', 
+        value: formatCurrency(data.summary.netProfit || (data.summary.totalSales - data.summary.totalRawStone - (data.summary.totalOtherExpenses || 0))) 
+      },
       { label: 'Total Entries', value: data.summary.totalEntries.toString() },
     ];
 
@@ -127,10 +134,9 @@ const generatePdf = data => {
     const headers = [
       'Date',
       'Time',
-      'Truck No.',
-      'Truck Name',
       'Type',
-      'Material',
+      'Description',
+      'Material/Expense',
       'Units',
       'Amount',
     ];
@@ -140,9 +146,8 @@ const generatePdf = data => {
       margin + 130,
       margin + 200,
       margin + 280,
-      margin + 320,
-      margin + 380,
-      margin + 420,
+      margin + 350,
+      margin + 400,
     ];
 
     // Header row
@@ -179,14 +184,13 @@ const generatePdf = data => {
         .font('Helvetica')
         .text(formatDate(entry.date), colPositions[0], currentY);
       doc.text(formatTime(entry.time), colPositions[1], currentY);
-      doc.text(entry.truckNumber, colPositions[2], currentY);
-      doc.text(entry.truckName || 'N/A', colPositions[3], currentY);
-      doc.text(entry.entryType, colPositions[4], currentY);
-      doc.text(entry.materialType || 'N/A', colPositions[5], currentY);
-      doc.text(entry.units.toString(), colPositions[6], currentY);
+      doc.text(entry.entryType, colPositions[2], currentY);
+      doc.text(entry.description || 'N/A', colPositions[3], currentY);
+      doc.text(entry.materialType || 'N/A', colPositions[4], currentY);
+      doc.text(entry.units.toString(), colPositions[5], currentY);
       doc
         .font('Helvetica-Bold')
-        .text(formatCurrency(entry.totalAmount), colPositions[7], currentY);
+        .text(formatCurrency(entry.totalAmount), colPositions[6], currentY);
       doc.font('Helvetica');
 
       currentY += 25;

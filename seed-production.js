@@ -79,9 +79,29 @@ const seedMaterialRates = async adminUser => {
         notes: 'Market rate for P-Sand per unit',
       },
       {
-        materialType: 'Blue Metal',
+        materialType: 'Blue Metal 0.5in',
         currentRate: 24000,
-        notes: 'Market rate for Blue Metal per unit',
+        notes: 'Market rate for Blue Metal 0.5in per unit',
+      },
+      {
+        materialType: 'Blue Metal 0.75in',
+        currentRate: 25000,
+        notes: 'Market rate for Blue Metal 0.75in per unit',
+      },
+      {
+        materialType: 'Jally',
+        currentRate: 18000,
+        notes: 'Market rate for Jally per unit',
+      },
+      {
+        materialType: 'Kurunai',
+        currentRate: 16000,
+        notes: 'Market rate for Kurunai per unit',
+      },
+      {
+        materialType: 'Mixed',
+        currentRate: 20000,
+        notes: 'Market rate for Mixed materials per unit',
       },
     ];
 

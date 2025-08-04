@@ -24,15 +24,14 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const configRoutes = require('./routes/configRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const downloadRoutes = require('./routes/downloadRoutes');
+const otherExpenseRoutes = require('./routes/otherExpenses');
 
 const app = express();
 
 // Connect to MongoDB with better error handling
 const initializeServer = async () => {
   try {
-    console.log('🚀 Starting server initialization...');
     await connectDB();
-    console.log('✅ Server initialization complete');
   } catch (error) {
     console.error('❌ Server initialization failed:', error.message);
     console.error('🔍 Full error:', error);
@@ -133,6 +132,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/truck-entries', authenticateToken, truckEntryRoutes);
 app.use('/api/material-rates', authenticateToken, materialRateRoutes);
+app.use('/api/other-expenses', otherExpenseRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
@@ -306,11 +306,5 @@ if (process.env.NODE_ENV === 'production') {
   module.exports = app;
 } else {
   // Start server for local development
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 CrusherMate API Server Started!`);
-    console.log(`📡 Server: http://localhost:${PORT}`);
-    console.log(`🏥 Health: http://localhost:${PORT}/health`);
-    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`⏰ Started at: ${new Date().toLocaleString()}`);
-  });
+  app.listen(PORT, '0.0.0.0', () => {});
 }

@@ -26,7 +26,11 @@ const getAppConfig = asyncHandler(async (req, res) => {
       'Raw Stone': { currentRate: 18000 },
       'M-Sand': { currentRate: 22000 },
       'P-Sand': { currentRate: 20000 },
-      'Blue Metal': { currentRate: 24000 },
+      'Blue Metal 0.5in': { currentRate: 24000 },
+      'Blue Metal 0.75in': { currentRate: 25000 },
+      Jally: { currentRate: 18000 },
+      Kurunai: { currentRate: 16000 },
+      Mixed: { currentRate: 20000 },
     };
 
     // Add default rates for materials that don't have rates in the database
@@ -43,7 +47,15 @@ const getAppConfig = asyncHandler(async (req, res) => {
 
     // If no material types found in database, use default ones
     if (materialTypes.length === 0) {
-      materialTypes = ['M-Sand', 'P-Sand', 'Blue Metal'];
+      materialTypes = [
+        'M-Sand',
+        'P-Sand',
+        'Blue Metal 0.5in',
+        'Blue Metal 0.75in',
+        'Jally',
+        'Kurunai',
+        'Mixed',
+      ];
     }
 
     // Convert material types to the format expected by frontend
@@ -246,7 +258,15 @@ const validateTruckEntry = asyncHandler(async (req, res) => {
   if (entryType === 'Sales') {
     if (!materialType) {
       errors.push('Material type is required for Sales entries');
-    } else if (!['M-Sand', 'P-Sand', 'Blue Metal'].includes(materialType)) {
+    } else if (![
+      'M-Sand',
+      'P-Sand',
+      'Blue Metal 0.5in',
+      'Blue Metal 0.75in',
+      'Jally',
+      'Kurunai',
+      'Mixed'
+    ].includes(materialType)) {
       errors.push('Invalid material type selected');
     }
   }

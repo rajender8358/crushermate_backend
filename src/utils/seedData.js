@@ -16,7 +16,6 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('✅ MongoDB connected for seeding');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
     process.exit(1);
@@ -34,7 +33,6 @@ const seedOrganizationAndAdmin = async () => {
     const existingAdmin = await User.findOne({ email: adminEmail });
 
     if (existingAdmin) {
-      console.log(`👤 Admin user already exists: ${adminEmail}`);
       return existingAdmin;
     }
 
@@ -54,13 +52,10 @@ const seedOrganizationAndAdmin = async () => {
       members: [adminUser._id],
     });
 
-    console.log(`✅ Organization created: ${organization.name}`);
-
     // Update admin user with organization
     adminUser.organization = organization._id;
     await adminUser.save();
 
-    console.log(`✅ Admin user created: ${adminEmail}`);
     return adminUser;
   } catch (error) {
     console.error('❌ Error creating admin user:', error.message);
@@ -83,9 +78,29 @@ const seedMaterialRates = async adminUser => {
         notes: 'Market rate for P-Sand per unit',
       },
       {
-        materialType: 'Blue Metal',
+        materialType: 'Blue Metal 0.5in',
         currentRate: 24000,
-        notes: 'Market rate for Blue Metal per unit',
+        notes: 'Market rate for Blue Metal 0.5in per unit',
+      },
+      {
+        materialType: 'Blue Metal 0.75in',
+        currentRate: 25000,
+        notes: 'Market rate for Blue Metal 0.75in per unit',
+      },
+      {
+        materialType: 'Jally',
+        currentRate: 18000,
+        notes: 'Market rate for Jally per unit',
+      },
+      {
+        materialType: 'Kurunai',
+        currentRate: 16000,
+        notes: 'Market rate for Kurunai per unit',
+      },
+      {
+        materialType: 'Mixed',
+        currentRate: 20000,
+        notes: 'Market rate for Mixed materials per unit',
       },
     ];
 
@@ -125,9 +140,6 @@ const seedSampleTruckEntries = async adminUser => {
     });
 
     if (existingEntries > 0) {
-      console.log(
-        `📊 Sample truck entries already exist: ${existingEntries} entries`,
-      );
       return;
     }
 
@@ -142,7 +154,7 @@ const seedSampleTruckEntries = async adminUser => {
         ratePerUnit: 22000,
         entryTime: '09:30',
         entryDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Yesterday
-        notes: 'Sample sales entry',
+        notes: 'Sample M-Sand sales entry',
       },
       {
         userId: adminUser._id,
@@ -173,29 +185,64 @@ const seedSampleTruckEntries = async adminUser => {
         organization: adminUser.organization,
         truckNumber: 'KA04GH3456',
         entryType: 'Sales',
-        materialType: 'Blue Metal',
+        materialType: 'Blue Metal 0.5in',
         units: 12,
         ratePerUnit: 24000,
         entryTime: '16:20',
         entryDate: new Date(), // Today
-        notes: 'Sample Blue Metal sales',
+        notes: 'Sample Blue Metal 0.5in sales',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA05IJ7890',
-        entryType: 'Raw Stone',
-        materialType: null,
-        units: 20,
-        ratePerUnit: 17000,
-        entryTime: '08:00',
+        entryType: 'Sales',
+        materialType: 'Blue Metal 0.75in',
+        units: 6,
+        ratePerUnit: 25000,
+        entryTime: '10:30',
+        entryDate: new Date(), // Today
+        notes: 'Sample Blue Metal 0.75in sales',
+      },
+      {
+        userId: adminUser._id,
+        organization: adminUser.organization,
+        truckNumber: 'KA06KL2345',
+        entryType: 'Sales',
+        materialType: 'Jally',
+        units: 15,
+        ratePerUnit: 18000,
+        entryTime: '13:45',
         entryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        notes: 'Sample raw material purchase',
+        notes: 'Sample Jally sales',
+      },
+      {
+        userId: adminUser._id,
+        organization: adminUser.organization,
+        truckNumber: 'KA07MN6789',
+        entryType: 'Sales',
+        materialType: 'Kurunai',
+        units: 20,
+        ratePerUnit: 16000,
+        entryTime: '15:20',
+        entryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        notes: 'Sample Kurunai sales',
+      },
+      {
+        userId: adminUser._id,
+        organization: adminUser.organization,
+        truckNumber: 'KA08OP0123',
+        entryType: 'Sales',
+        materialType: 'Mixed',
+        units: 10,
+        ratePerUnit: 20000,
+        entryTime: '12:00',
+        entryDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        notes: 'Sample Mixed materials sales',
       },
     ];
 
     await TruckEntry.insertMany(sampleEntries);
-    console.log(`✅ Created ${sampleEntries.length} sample truck entries`);
   } catch (error) {
     console.error('❌ Error seeding sample truck entries:', error.message);
     throw error;
@@ -210,7 +257,6 @@ const seedTestUser = async adminUser => {
     const existingUser = await User.findOne({ email: testEmail });
 
     if (existingUser) {
-      console.log(`👤 Test user already exists: ${testEmail}`);
       return existingUser;
     }
 
@@ -223,7 +269,6 @@ const seedTestUser = async adminUser => {
       organization: adminUser.organization,
     });
 
-    console.log(`✅ Test user created: ${testEmail}`);
     return testUser;
   } catch (error) {
     console.error('❌ Error creating test user:', error.message);
@@ -234,8 +279,6 @@ const seedTestUser = async adminUser => {
 // Main seeding function
 const seedDatabase = async () => {
   try {
-    console.log('🌱 Starting database seeding...');
-
     await connectDB();
 
     // Seed admin user and organization
@@ -249,23 +292,6 @@ const seedDatabase = async () => {
 
     // Seed sample truck entries
     await seedSampleTruckEntries(adminUser);
-
-    console.log('🎉 Database seeding completed successfully!');
-    console.log('\n📋 Summary:');
-    console.log(`👤 Admin User: ${adminUser.email} (role: ${adminUser.role})`);
-    console.log(`👤 Test User: ${testUser.email} (role: ${testUser.role})`);
-
-    const materialRates = await MaterialRate.find({ isActive: true });
-    console.log(`💰 Material Rates: ${materialRates.length} rates configured`);
-
-    const truckEntries = await TruckEntry.countDocuments({ status: 'active' });
-    console.log(`🚛 Truck Entries: ${truckEntries} sample entries`);
-
-    console.log('\n🔐 Login Credentials:');
-    console.log(
-      `Owner: ${adminUser.email} / ${process.env.ADMIN_PASSWORD || 'Test@123'}`,
-    );
-    console.log(`User: ${testUser.email} / test123`);
   } catch (error) {
     console.error('❌ Database seeding failed:', error.message);
     process.exit(1);
@@ -278,8 +304,6 @@ const seedDatabase = async () => {
 // Clear all data (for testing)
 const clearDatabase = async () => {
   try {
-    console.log('🗑️  Clearing database...');
-
     await connectDB();
 
     await Promise.all([
@@ -288,8 +312,6 @@ const clearDatabase = async () => {
       TruckEntry.deleteMany({}),
       Organization.deleteMany({}),
     ]);
-
-    console.log('✅ Database cleared successfully');
   } catch (error) {
     console.error('❌ Error clearing database:', error.message);
     throw error;
@@ -313,10 +335,6 @@ switch (command) {
     clearDatabase().then(() => seedDatabase());
     break;
   default:
-    console.log('Usage: node seedData.js [seed|clear|reset]');
-    console.log('  seed  - Populate database with initial data');
-    console.log('  clear - Remove all data from database');
-    console.log('  reset - Clear and then seed database');
     process.exit(1);
 }
 

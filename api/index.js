@@ -26,19 +26,16 @@ const app = express();
 // Connect to MongoDB with better error handling
 const initializeServer = async () => {
   try {
-    console.log('🚀 Starting server initialization...');
     await connectDB();
-    console.log('✅ Server initialization complete');
   } catch (error) {
-    console.error('❌ Server initialization failed:', error.message);
-    console.error('🔍 Full error:', error);
+    // Handle initialization error silently
   }
 };
 
 // Initialize server but don't block startup
 setTimeout(() => {
   initializeServer().catch(error => {
-    console.error('❌ Server initialization error:', error);
+    // Handle initialization error silently
   });
 }, 100);
 

@@ -37,14 +37,34 @@ const truckEntrySchema = new mongoose.Schema(
     },
     materialType: {
       type: String,
-      enum: ['M-Sand', 'P-Sand', 'Blue Metal', null],
+      enum: [
+        'M-Sand',
+        'P-Sand',
+        'Blue Metal 0.5in',
+        'Blue Metal 0.75in',
+        'Jally',
+        'Kurunai',
+        'Mixed',
+        null,
+      ],
       required: function () {
         return this.entryType === 'Sales';
       },
       validate: {
         validator: function (value) {
           if (this.entryType === 'Sales') {
-            return value && ['M-Sand', 'P-Sand', 'Blue Metal'].includes(value);
+            return (
+              value &&
+              [
+                'M-Sand',
+                'P-Sand',
+                'Blue Metal 0.5in',
+                'Blue Metal 0.75in',
+                'Jally',
+                'Kurunai',
+                'Mixed',
+              ].includes(value)
+            );
           }
           return true; // Raw Stone entries don't need materialType
         },
@@ -180,11 +200,6 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
     ...filters,
   };
 
-  console.log(
-    '🔍 Summary aggregation - Base match:',
-    JSON.stringify(baseMatch, null, 2),
-  );
-
   const summary = await this.aggregate([
     { $match: baseMatch },
     {
@@ -197,15 +212,46 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
     },
   ]);
 
-  console.log('🔍 Summary aggregation - Raw result:', summary);
+  // Get other expenses for the same period and organization
+  const OtherExpense = require('./OtherExpense');
+  const otherExpensesQuery = {
+    isActive: true,
+    date: {
+      $gte: new Date(startDate),
+      $lte: new Date(endDate),
+    },
+  };
+
+  // Add organization filter if present
+  if (filters.organization) {
+    otherExpensesQuery.organization = filters.organization;
+  }
+
+  const otherExpensesSummary = await OtherExpense.aggregate([
+    { $match: otherExpensesQuery },
+    {
+      $group: {
+        _id: null,
+        totalAmount: { $sum: '$amount' },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const totalOtherExpenses = otherExpensesSummary[0]?.totalAmount || 0;
+  const otherExpensesCount = otherExpensesSummary[0]?.count || 0;
+
+
 
   // Format the summary
   const result = {
     totalSales: 0,
     totalRawStone: 0,
+    totalOtherExpenses: totalOtherExpenses,
     totalExpenses: 0,
     salesCount: 0,
     rawStoneCount: 0,
+    otherExpensesCount: otherExpensesCount,
     totalEntries: 0,
   };
 
@@ -219,17 +265,16 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
     }
   });
 
-  result.totalEntries = result.salesCount + result.rawStoneCount;
-  result.netIncome =
-    result.totalSales - result.totalRawStone - result.totalExpenses;
+  result.totalExpenses = result.totalRawStone + result.totalOtherExpenses;
+  result.totalEntries =
+    result.salesCount + result.rawStoneCount + result.otherExpensesCount;
+  result.netProfit = result.totalSales - result.totalExpenses;
 
-  console.log('🔍 Summary aggregation - Final result:', result);
+  
 
   // Fallback: If aggregation returns 0, calculate manually
   if (result.totalSales === 0 && result.totalRawStone === 0) {
-    console.log('🔍 Using fallback calculation...');
     const entries = await this.find(baseMatch);
-    console.log('🔍 Fallback - Found entries:', entries.length);
 
     let manualTotalSales = 0;
     let manualTotalRawStone = 0;
@@ -247,15 +292,38 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
       }
     });
 
+    // Get other expenses for fallback calculation
+    const otherExpensesQuery = {
+      isActive: true,
+      date: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    };
+
+    if (filters.organization) {
+      otherExpensesQuery.organization = filters.organization;
+    }
+
+    const otherExpenses = await OtherExpense.find(otherExpensesQuery);
+    const manualTotalOtherExpenses = otherExpenses.reduce(
+      (sum, expense) => sum + expense.amount,
+      0,
+    );
+    const manualOtherExpensesCount = otherExpenses.length;
+
     result.totalSales = manualTotalSales;
     result.totalRawStone = manualTotalRawStone;
+    result.totalOtherExpenses = manualTotalOtherExpenses;
     result.salesCount = manualSalesCount;
     result.rawStoneCount = manualRawStoneCount;
-    result.totalEntries = manualSalesCount + manualRawStoneCount;
-    result.netIncome =
-      result.totalSales - result.totalRawStone - result.totalExpenses;
+    result.otherExpensesCount = manualOtherExpensesCount;
+    result.totalExpenses = result.totalRawStone + result.totalOtherExpenses;
+    result.totalEntries =
+      result.salesCount + result.rawStoneCount + result.otherExpensesCount;
+    result.netProfit = result.totalSales - result.totalExpenses;
 
-    console.log('🔍 Fallback calculation result:', result);
+
   }
 
   return result;

@@ -71,8 +71,6 @@ const login = asyncHandler(async (req, res) => {
     );
   }
 
-  console.log(`🔐 Login attempt for username: ${username}`);
-
   try {
     // Use optimized query method with timeout handling
     const user = await Promise.race([
@@ -83,7 +81,6 @@ const login = asyncHandler(async (req, res) => {
     ]);
 
     if (!user) {
-      console.log(`❌ User not found: ${username}`);
       throw new AppError(
         'Invalid username or password',
         401,
@@ -91,12 +88,9 @@ const login = asyncHandler(async (req, res) => {
       );
     }
 
-    console.log(`✅ User found: ${user.username}, role: ${user.role}`);
-
     // Compare password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      console.log(`❌ Invalid password for user: ${username}`);
       throw new AppError(
         'Invalid username or password',
         401,
@@ -105,7 +99,6 @@ const login = asyncHandler(async (req, res) => {
     }
 
     if (!user.isActive) {
-      console.log(`❌ Account deactivated for user: ${username}`);
       throw new AppError('Account is deactivated', 401, 'ACCOUNT_DEACTIVATED');
     }
 
@@ -122,8 +115,6 @@ const login = asyncHandler(async (req, res) => {
       { lastLogin: new Date() },
       { new: false },
     ).catch(err => console.error('Failed to update last login:', err));
-
-    console.log(`✅ Login successful for user: ${username}`);
 
     res.json({
       success: true,

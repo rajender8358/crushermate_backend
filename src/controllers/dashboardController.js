@@ -1,6 +1,7 @@
 const TruckEntry = require('../models/TruckEntry');
 const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
+const OtherExpense = require('../models/OtherExpense');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const mongoose = require('mongoose');
 
@@ -118,6 +119,16 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .limit(5);
 
+  // Get recent other expenses (last 5 from the selected range)
+  const recentOtherExpenses = await OtherExpense.find({
+    organization: new mongoose.Types.ObjectId(organizationId),
+    isActive: true,
+    date: { $gte: startDate, $lte: endDate },
+  })
+    .populate('user', 'username fullName')
+    .sort({ createdAt: -1 })
+    .limit(5);
+
   // Get material-wise breakdown for sales
   const materialBreakdown = await TruckEntry.aggregate([
     {
@@ -176,6 +187,7 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
       summary,
       todayEntries: todayEntriesCount,
       recentEntries,
+      recentOtherExpenses,
       materialBreakdown,
       topTrucks,
     },

@@ -51,8 +51,16 @@ const createTruckEntryValidation = [
   }),
   body('materialType')
     .optional()
-    .isIn(['M-Sand', 'P-Sand', 'Blue Metal'])
-    .withMessage('Material type must be M-Sand, P-Sand, or Blue Metal'),
+    .isIn([
+      'M-Sand',
+      'P-Sand',
+      'Blue Metal 0.5in',
+      'Blue Metal 0.75in',
+      'Jally',
+      'Kurunai',
+      'Mixed',
+    ])
+    .withMessage('Material type must be one of the valid sales materials'),
 ];
 
 const updateTruckEntryValidation = [
@@ -106,8 +114,16 @@ const updateTruckEntryValidation = [
     }),
   body('materialType')
     .optional()
-    .isIn(['M-Sand', 'P-Sand', 'Blue Metal'])
-    .withMessage('Material type must be M-Sand, P-Sand, or Blue Metal'),
+    .isIn([
+      'M-Sand',
+      'P-Sand',
+      'Blue Metal 0.5in',
+      'Blue Metal 0.75in',
+      'Jally',
+      'Kurunai',
+      'Mixed',
+    ])
+    .withMessage('Material type must be one of the valid sales materials'),
 ];
 
 // @desc    Create new truck entry

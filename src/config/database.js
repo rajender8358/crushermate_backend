@@ -7,8 +7,7 @@ const connectDB = async () => {
       process.env.MONGODB_URI ||
       'mongodb+srv://rajenderreddygarlapalli:MacBook%408358%249154@crushermate.utrbdfv.mongodb.net/CrusherMate?retryWrites=true&w=majority';
 
-    console.log('🔗 Connecting to MongoDB...');
-    console.log('🌐 URI:', mongoURI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
+    
 
     // Enhanced connection options for better performance and reliability
     const connectionOptions = {

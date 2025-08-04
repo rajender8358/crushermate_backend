@@ -1,6 +1,7 @@
 const TruckEntry = require('../models/TruckEntry');
 const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
+const OtherExpense = require('../models/OtherExpense');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { generatePdf } = require('../utils/exportGenerator');
 const jwt = require('jsonwebtoken');
@@ -55,7 +56,7 @@ const getReportData = asyncHandler(async (req, res) => {
 
   filter.entryDate = {
     $gte: new Date(startDate),
-    $lte: new Date(endDate),
+    $lte: new Date(endDate + 'T23:59:59.999Z'),
   };
 
   // Get detailed entries
@@ -250,29 +251,16 @@ const generateExportData = asyncHandler(async (req, res) => {
       status: 'active',
       entryDate: {
         $gte: new Date(startDate),
-        $lte: new Date(endDate),
+        $lte: new Date(endDate + 'T23:59:59.999Z'),
       },
     };
 
     // Filter by user's organization
-    if (req.user.organization) {
-      console.log('🔍 User organization:', req.user.organization);
-      console.log('🔍 User organization type:', typeof req.user.organization);
-
-      // Validate that organization is a valid ObjectId
-      const mongoose = require('mongoose');
-      if (mongoose.Types.ObjectId.isValid(req.user.organization)) {
-        console.log('✅ Valid organization ID, applying filter');
-        filter.organization = req.user.organization;
-      } else {
-        console.log(
-          '❌ Invalid organization ID format:',
-          req.user.organization,
-        );
-        throw new AppError('Invalid organization configuration', 400);
-      }
+    if (req.user.organizationId) {
+      filter.organization = req.user.organizationId;
+    } else if (req.user.organization) {
+      filter.organization = req.user.organization;
     } else {
-      console.log('⚠️ No organization found for user');
       throw new AppError('User organization not found', 400);
     }
 
@@ -281,20 +269,114 @@ const generateExportData = asyncHandler(async (req, res) => {
       filter.userId = req.user.id;
     }
 
-    console.log('🔍 Final filter:', JSON.stringify(filter, null, 2));
-
-    const entries = await TruckEntry.find(filter)
+    // Fetch truck entries
+    const truckEntries = await TruckEntry.find(filter)
       .populate('userId', 'username email')
       .sort({ entryDate: -1 });
 
-    console.log(`📊 Found ${entries.length} entries for organization`);
+    // Fetch other expenses with same filter
+    const otherExpensesFilter = {
+      isActive: true,
+      date: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate + 'T23:59:59.999Z'),
+      },
+    };
 
-    // Get summary for the filtered data
+    // Filter by user's organization for other expenses
+    if (req.user.organizationId) {
+      otherExpensesFilter.organization = req.user.organizationId;
+    } else if (req.user.organization) {
+      otherExpensesFilter.organization = req.user.organization;
+    }
+
+    // Role-based filtering for other expenses
+    if (req.user.role !== 'owner') {
+      otherExpensesFilter.user = req.user.id;
+    }
+
+    const otherExpenses = await OtherExpense.find(otherExpensesFilter)
+      .populate('user', 'username email')
+      .sort({ date: -1 });
+
+    // Get summary for the filtered data (includes other expenses)
     const summary = await TruckEntry.getSummaryByDateRange(
       new Date(startDate),
       new Date(endDate),
       filter, // Pass the filter to get summary for the same data
     );
+
+    // Transform truck entries for export
+    const truckEntriesForExport = truckEntries.map(entry => ({
+      date: entry.entryDate.toISOString().split('T')[0],
+      time: entry.entryTime,
+      truckNumber: entry.truckNumber,
+      entryType: entry.entryType,
+      materialType: entry.materialType || 'N/A',
+      units: entry.units,
+      ratePerUnit: entry.ratePerUnit,
+      totalAmount: entry.totalAmount,
+      type: 'truck_entry',
+    }));
+
+    // Transform other expenses for export
+    const otherExpensesForExport = otherExpenses.map(expense => ({
+      date: expense.date.toISOString().split('T')[0],
+      time: expense.date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      truckNumber: 'N/A',
+      entryType: 'Expense',
+      materialType: expense.expensesName || 'Expense',
+      units: 'N/A',
+      ratePerUnit: 'N/A',
+      totalAmount: expense.amount,
+      description: expense.others || '',
+      type: 'other_expense',
+    }));
+
+    // Combine all entries and sort by date
+    const allEntries = [
+      ...truckEntriesForExport,
+      ...otherExpensesForExport,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    console.log('🔍 Export data summary:');
+    console.log('🔍 Truck entries for export:', truckEntriesForExport.length);
+    console.log('🔍 Other expenses for export:', otherExpensesForExport.length);
+    console.log('🔍 Total entries for export:', allEntries.length);
+
+    if (otherExpensesForExport.length > 0) {
+      console.log(
+        '🔍 Sample other expense for export:',
+        otherExpensesForExport[0],
+      );
+    } else {
+      console.log('🔍 No other expenses found for export');
+      console.log('🔍 Other expenses filter used:', otherExpensesFilter);
+      console.log('🔍 User organization:', req.user.organization);
+      console.log('🔍 User organizationId:', req.user.organizationId);
+      console.log('🔍 Date range:', { startDate, endDate });
+
+      // Let's also check what Other Expenses exist in the database
+      const allOtherExpenses = await OtherExpense.find({ isActive: true }).sort(
+        { date: -1 },
+      );
+      console.log(
+        '🔍 Total Other Expenses in database:',
+        allOtherExpenses.length,
+      );
+      if (allOtherExpenses.length > 0) {
+        console.log('🔍 Sample Other Expense from database:', {
+          id: allOtherExpenses[0]._id,
+          expensesName: allOtherExpenses[0].expensesName,
+          amount: allOtherExpenses[0].amount,
+          date: allOtherExpenses[0].date,
+          organization: allOtherExpenses[0].organization,
+        });
+      }
+    }
 
     const exportData = {
       reportInfo: {
@@ -304,16 +386,7 @@ const generateExportData = asyncHandler(async (req, res) => {
         dateRange: { startDate, endDate },
       },
       summary,
-      entries: entries.map(entry => ({
-        date: entry.entryDate.toISOString().split('T')[0],
-        time: entry.entryTime,
-        truckNumber: entry.truckNumber,
-        entryType: entry.entryType,
-        materialType: entry.materialType || 'N/A',
-        units: entry.units,
-        ratePerUnit: entry.ratePerUnit,
-        totalAmount: entry.totalAmount,
-      })),
+      entries: allEntries,
     };
 
     if (format === 'pdf') {
@@ -337,12 +410,13 @@ const generateExportData = asyncHandler(async (req, res) => {
         'date',
         'time',
         'truckNumber',
-        'truckName',
         'entryType',
         'materialType',
         'units',
         'ratePerUnit',
         'totalAmount',
+        'description',
+        'type',
       ];
 
       const parser = new Parser({ fields });
@@ -426,8 +500,6 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
       createdAt: new Date(),
     });
 
-    console.log('🔍 Download token created with organization:', organizationId);
-
     // Return the download URL
     const downloadUrl = `${req.protocol}://${req.get(
       'host',
@@ -459,14 +531,9 @@ const downloadWithToken = asyncHandler(async (req, res) => {
   try {
     const { token } = req.params;
 
-    console.log('🔍 Download token received:', token);
-
     // Verify the download token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const downloadData = downloadTokens.get(token);
-
-    console.log('🔍 Decoded token:', decoded);
-    console.log('🔍 Download data:', downloadData);
 
     if (!downloadData || decoded.type !== 'download') {
       throw new AppError('Invalid or expired download token', 401);
@@ -484,7 +551,7 @@ const downloadWithToken = asyncHandler(async (req, res) => {
       status: 'active',
       entryDate: {
         $gte: new Date(downloadData.startDate),
-        $lte: new Date(downloadData.endDate),
+        $lte: new Date(downloadData.endDate + 'T23:59:59.999Z'),
       },
       organization: downloadData.organization,
     };
@@ -494,32 +561,25 @@ const downloadWithToken = asyncHandler(async (req, res) => {
       filter.userId = downloadData.userId;
     }
 
-    console.log('🔍 Final filter:', JSON.stringify(filter, null, 2));
-    console.log(
-      '🔍 Date range:',
-      downloadData.startDate,
-      'to',
-      downloadData.endDate,
-    );
-    console.log('🔍 Organization:', downloadData.organization);
-
     const entries = await TruckEntry.find(filter)
       .populate('userId', 'username email')
       .sort({ entryDate: -1 });
 
-    console.log('🔍 Found entries:', entries.length);
-    console.log(
-      '🔍 Sample entry data:',
-      entries[0]
-        ? {
-            entryType: entries[0].entryType,
-            totalAmount: entries[0].totalAmount,
-            units: entries[0].units,
-            ratePerUnit: entries[0].ratePerUnit,
-            materialType: entries[0].materialType,
-          }
-        : 'No entries',
-    );
+    // Fetch other expenses with same filter
+    const otherExpensesFilter = {
+      isActive: true,
+      date: {
+        $gte: new Date(downloadData.startDate),
+        $lte: new Date(downloadData.endDate + 'T23:59:59.999Z'),
+      },
+      organization: downloadData.organization,
+    };
+
+    const otherExpenses = await OtherExpense.find(otherExpensesFilter)
+      .populate('user', 'username email')
+      .sort({ date: -1 });
+
+    console.log('🔍 Found other expenses:', otherExpenses.length);
 
     const summary = await TruckEntry.getSummaryByDateRange(
       new Date(downloadData.startDate),
@@ -528,6 +588,41 @@ const downloadWithToken = asyncHandler(async (req, res) => {
     );
 
     console.log('🔍 Summary:', summary);
+
+    // Transform truck entries for export
+    const truckEntriesForExport = entries.map(entry => ({
+      date: entry.entryDate.toISOString().split('T')[0],
+      time: entry.entryTime,
+      truckNumber: entry.truckNumber,
+      truckName: entry.truckName || 'N/A',
+      entryType: entry.entryType,
+      materialType: entry.materialType || 'N/A',
+      units: entry.units,
+      ratePerUnit: entry.ratePerUnit,
+      totalAmount: entry.totalAmount,
+    }));
+
+    // Transform other expenses for export
+    const otherExpensesForExport = otherExpenses.map(expense => ({
+      date: expense.date.toISOString().split('T')[0],
+      time: expense.date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      truckNumber: 'N/A',
+      truckName: 'N/A',
+      entryType: 'Expense',
+      materialType: expense.expensesName || 'Expense',
+      units: 'N/A',
+      ratePerUnit: 'N/A',
+      totalAmount: expense.amount,
+    }));
+
+    // Combine all entries and sort by date
+    const allEntries = [
+      ...truckEntriesForExport,
+      ...otherExpensesForExport,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const exportData = {
       reportInfo: {
@@ -540,20 +635,8 @@ const downloadWithToken = asyncHandler(async (req, res) => {
         },
       },
       summary,
-      entries: entries.map(entry => ({
-        date: entry.entryDate.toISOString().split('T')[0],
-        time: entry.entryTime,
-        truckNumber: entry.truckNumber,
-        truckName: entry.truckName || 'N/A',
-        entryType: entry.entryType,
-        materialType: entry.materialType || 'N/A',
-        units: entry.units,
-        ratePerUnit: entry.ratePerUnit,
-        totalAmount: entry.totalAmount,
-      })),
+      entries: allEntries,
     };
-
-    console.log('🔍 Export data entries count:', exportData.entries.length);
 
     if (downloadData.format === 'pdf') {
       const pdfBuffer = await generatePdf(exportData);
