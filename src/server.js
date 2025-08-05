@@ -22,6 +22,7 @@ const materialRateRoutes = require('./routes/materialRateRoutes');
 const organizationRoutes = require('./routes/organizationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const configRoutes = require('./routes/configRoutes');
+const { getAppConfig } = require('./controllers/configController');
 const reportRoutes = require('./routes/reportRoutes');
 const downloadRoutes = require('./routes/downloadRoutes');
 const otherExpenseRoutes = require('./routes/expenses');
@@ -135,6 +136,8 @@ app.use('/api/material-rates', authenticateToken, materialRateRoutes);
 app.use('/api/expenses', otherExpenseRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+// Public app config endpoint (no auth required)
+app.get('/api/config/app', getAppConfig);
 app.use('/api/config', authenticateToken, configRoutes);
 
 // Test route for other-expenses debugging
