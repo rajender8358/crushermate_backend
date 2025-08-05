@@ -38,13 +38,14 @@ const truckEntrySchema = new mongoose.Schema(
     materialType: {
       type: String,
       enum: [
-        'M-Sand',
-        'P-Sand',
-        'Blue Metal 0.5in',
-        'Blue Metal 0.75in',
-        'Jally',
-        'Kurunai',
-        'Mixed',
+        '1 1/2" Metal',
+        '3/4" Jalli',
+        '1/2" Jalli',
+        '1/4" Kuranai',
+        'Dust',
+        'Wetmix',
+        'M sand',
+        'P sand',
         null,
       ],
       required: function () {
@@ -56,13 +57,14 @@ const truckEntrySchema = new mongoose.Schema(
             return (
               value &&
               [
-                'M-Sand',
-                'P-Sand',
-                'Blue Metal 0.5in',
-                'Blue Metal 0.75in',
-                'Jally',
-                'Kurunai',
-                'Mixed',
+                '1 1/2" Metal',
+                '3/4" Jalli',
+                '1/2" Jalli',
+                '1/4" Kuranai',
+                'Dust',
+                'Wetmix',
+                'M sand',
+                'P sand',
               ].includes(value)
             );
           }

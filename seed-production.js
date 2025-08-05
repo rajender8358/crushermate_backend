@@ -69,39 +69,44 @@ const seedMaterialRates = async adminUser => {
   try {
     const defaultRates = [
       {
-        materialType: 'M-Sand',
+        materialType: '1 1/2" Metal',
+        currentRate: 28000,
+        notes: 'Market rate for 1 1/2" Metal per unit',
+      },
+      {
+        materialType: '3/4" Jalli',
         currentRate: 22000,
-        notes: 'Market rate for M-Sand per unit',
+        notes: 'Market rate for 3/4" Jalli per unit',
       },
       {
-        materialType: 'P-Sand',
+        materialType: '1/2" Jalli',
         currentRate: 20000,
-        notes: 'Market rate for P-Sand per unit',
+        notes: 'Market rate for 1/2" Jalli per unit',
       },
       {
-        materialType: 'Blue Metal 0.5in',
-        currentRate: 24000,
-        notes: 'Market rate for Blue Metal 0.5in per unit',
-      },
-      {
-        materialType: 'Blue Metal 0.75in',
-        currentRate: 25000,
-        notes: 'Market rate for Blue Metal 0.75in per unit',
-      },
-      {
-        materialType: 'Jally',
+        materialType: '1/4" Kuranai',
         currentRate: 18000,
-        notes: 'Market rate for Jally per unit',
+        notes: 'Market rate for 1/4" Kuranai per unit',
       },
       {
-        materialType: 'Kurunai',
-        currentRate: 16000,
-        notes: 'Market rate for Kurunai per unit',
+        materialType: 'Dust',
+        currentRate: 15000,
+        notes: 'Market rate for Dust per unit',
       },
       {
-        materialType: 'Mixed',
+        materialType: 'Wetmix',
+        currentRate: 25000,
+        notes: 'Market rate for Wetmix per unit',
+      },
+      {
+        materialType: 'M sand',
+        currentRate: 22000,
+        notes: 'Market rate for M sand per unit',
+      },
+      {
+        materialType: 'P sand',
         currentRate: 20000,
-        notes: 'Market rate for Mixed materials per unit',
+        notes: 'Market rate for P sand per unit',
       },
     ];
 

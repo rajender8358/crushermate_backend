@@ -24,13 +24,14 @@ const getAppConfig = asyncHandler(async (req, res) => {
     // Add default rates for common materials if they're not in the database
     const defaultRates = {
       'Raw Stone': { currentRate: 18000 },
-      'M-Sand': { currentRate: 22000 },
-      'P-Sand': { currentRate: 20000 },
-      'Blue Metal 0.5in': { currentRate: 24000 },
-      'Blue Metal 0.75in': { currentRate: 25000 },
-      Jally: { currentRate: 18000 },
-      Kurunai: { currentRate: 16000 },
-      Mixed: { currentRate: 20000 },
+      '1 1/2" Metal': { currentRate: 28000 },
+      '3/4" Jalli': { currentRate: 22000 },
+      '1/2" Jalli': { currentRate: 20000 },
+      '1/4" Kuranai': { currentRate: 18000 },
+      'Dust': { currentRate: 15000 },
+      'Wetmix': { currentRate: 25000 },
+      'M sand': { currentRate: 22000 },
+      'P sand': { currentRate: 20000 },
     };
 
     // Add default rates for materials that don't have rates in the database
@@ -48,13 +49,14 @@ const getAppConfig = asyncHandler(async (req, res) => {
     // If no material types found in database, use default ones
     if (materialTypes.length === 0) {
       materialTypes = [
-        'M-Sand',
-        'P-Sand',
-        'Blue Metal 0.5in',
-        'Blue Metal 0.75in',
-        'Jally',
-        'Kurunai',
-        'Mixed',
+        '1 1/2" Metal',
+        '3/4" Jalli',
+        '1/2" Jalli',
+        '1/4" Kuranai',
+        'Dust',
+        'Wetmix',
+        'M sand',
+        'P sand',
       ];
     }
 
