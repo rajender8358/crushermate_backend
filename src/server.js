@@ -223,6 +223,16 @@ app.get('/api/expenses-test', authenticateToken, (req, res) => {
 // Public download route (no authentication required) - separate path to avoid conflicts
 app.use('/api/download', downloadRoutes);
 
+// Test endpoint to verify deployment
+app.get('/api/test-download', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Download routes are working!',
+    timestamp: new Date().toISOString(),
+    routes: ['/api/download/generate', '/api/download/:token'],
+  });
+});
+
 // Test data route for debugging (no auth required)
 app.get('/api/test-data', async (req, res) => {
   try {
