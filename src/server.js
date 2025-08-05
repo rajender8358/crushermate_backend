@@ -24,7 +24,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const configRoutes = require('./routes/configRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const downloadRoutes = require('./routes/downloadRoutes');
-const otherExpenseRoutes = require('./routes/otherExpenses');
+const otherExpenseRoutes = require('./routes/expenses');
 
 const app = express();
 
@@ -132,13 +132,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/truck-entries', authenticateToken, truckEntryRoutes);
 app.use('/api/material-rates', authenticateToken, materialRateRoutes);
-app.use('/api/other-expenses', otherExpenseRoutes);
+app.use('/api/expenses', otherExpenseRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
 
 // Test route for other-expenses debugging
-app.get('/api/other-expenses-test', authenticateToken, (req, res) => {
+app.get('/api/expenses-test', authenticateToken, (req, res) => {
   res.json({
     success: true,
     message: 'Other expenses test route is working',
