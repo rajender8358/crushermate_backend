@@ -466,8 +466,24 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
     console.log('🔍 Organization type:', typeof req.user.organization);
     console.log('🔍 User organizationId:', req.user.organizationId);
 
-    // Use organizationId directly since it's always available
-    const organizationId = req.user.organizationId;
+    // Get organization ID with fallback
+    let organizationId = req.user.organizationId;
+
+    if (!organizationId && req.user.organization) {
+      organizationId = req.user.organization._id || req.user.organization;
+    }
+
+    // If still no organizationId, fetch from database
+    if (!organizationId) {
+      try {
+        const user = await User.findById(req.user.id).populate('organization');
+        if (user && user.organization) {
+          organizationId = user.organization._id || user.organization;
+        }
+      } catch (error) {
+        console.error('❌ Error fetching user organization:', error);
+      }
+    }
 
     if (!organizationId) {
       console.error('❌ No organization found for user:', req.user);
@@ -475,6 +491,14 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
     }
 
     console.log('🔍 Organization ID for download:', organizationId);
+
+    console.log('🔍 Generating download token with:', {
+      userId: req.user.id,
+      organization: organizationId,
+      startDate,
+      endDate,
+      format,
+    });
 
     // Generate a temporary download token
     const downloadToken = jwt.sign(
@@ -490,6 +514,8 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
       { expiresIn: '5m' }, // Token expires in 5 minutes
     );
 
+    console.log('🔍 Generated download token:', downloadToken);
+
     // Store the download token
     downloadTokens.set(downloadToken, {
       userId: req.user.id,
@@ -500,20 +526,44 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
       createdAt: new Date(),
     });
 
+    console.log('🔍 Stored download token in memory');
+
+    // Get summary data for the response
+    const summary = await TruckEntry.getSummaryByDateRange(
+      new Date(startDate),
+      new Date(endDate),
+      { organization: organizationId },
+    );
+
+    // Get entry count
+    const entriesCount = await TruckEntry.countDocuments({
+      status: 'active',
+      entryDate: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate + 'T23:59:59.999Z'),
+      },
+      organization: organizationId,
+    });
+
     // Return the download URL
     const downloadUrl = `${req.protocol}://${req.get(
       'host',
     )}/api/reports/download/${downloadToken}`;
 
-    res.json({
+    const responseData = {
       success: true,
       data: {
         downloadUrl,
         fileName: `CrusherMate_Report_${
           new Date().toISOString().split('T')[0]
         }.${format}`,
+        entriesCount,
+        summary,
       },
-    });
+    };
+
+    console.log('🔍 Sending response:', responseData);
+    res.json(responseData);
   } catch (error) {
     console.error('--- BROWSER DOWNLOAD ERROR ---', error);
     res.status(500).json({
