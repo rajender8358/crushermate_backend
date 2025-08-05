@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+// Expenses routes - renamed from otherExpenses.js for Vercel compatibility
 const { authenticateToken } = require('../middleware/auth');
 const {
   createOtherExpense,
@@ -33,4 +34,4 @@ router.put('/:id', updateOtherExpenseValidation, updateOtherExpense);
 // Delete other expense
 router.delete('/:id', deleteOtherExpense);
 
-module.exports = router; 
+module.exports = router;
