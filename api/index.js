@@ -20,6 +20,8 @@ const organizationRoutes = require('../src/routes/organizationRoutes');
 const dashboardRoutes = require('../src/routes/dashboardRoutes');
 const configRoutes = require('../src/routes/configRoutes');
 const reportRoutes = require('../src/routes/reportRoutes');
+const downloadRoutes = require('../src/routes/downloadRoutes');
+const otherExpenseRoutes = require('../src/routes/expenses');
 
 const app = express();
 
@@ -93,10 +95,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/truck-entries', authenticateToken, truckEntryRoutes);
 app.use('/api/material-rates', authenticateToken, materialRateRoutes);
+app.use('/api/expenses', otherExpenseRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/config', authenticateToken, configRoutes);
-app.use('/api/reports', reportRoutes); // Remove global auth for reports
+app.use('/api/reports', authenticateToken, reportRoutes);
+app.use('/api/reports/download', downloadRoutes);
 
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
