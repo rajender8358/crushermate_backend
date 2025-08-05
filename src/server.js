@@ -223,6 +223,114 @@ app.get('/api/expenses-test', authenticateToken, (req, res) => {
 // Public download route (no authentication required) - separate path to avoid conflicts
 app.use('/api/download', downloadRoutes);
 
+// Public PDF download endpoint - NO AUTHENTICATION REQUIRED
+app.post('/api/download-pdf', async (req, res) => {
+  try {
+    const { startDate, endDate, organizationId } = req.body;
+
+    if (!startDate || !endDate || !organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date, end date, and organization ID are required',
+      });
+    }
+
+    console.log('🔍 Generating PDF for:', {
+      startDate,
+      endDate,
+      organizationId,
+    });
+
+    const TruckEntry = require('./models/TruckEntry');
+    const OtherExpense = require('./models/OtherExpense');
+    const { generatePdf } = require('./utils/exportGenerator');
+
+    // Get truck entries
+    const entries = await TruckEntry.find({
+      status: 'active',
+      entryDate: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate + 'T23:59:59.999Z'),
+      },
+      organization: organizationId,
+    })
+      .populate('userId', 'username email')
+      .sort({ entryDate: -1 });
+
+    // Get other expenses
+    const otherExpenses = await OtherExpense.find({
+      isActive: true,
+      date: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate + 'T23:59:59.999Z'),
+      },
+      organization: organizationId,
+    })
+      .populate('user', 'username email')
+      .sort({ date: -1 });
+
+    // Transform data for export
+    const truckEntriesForExport = entries.map(entry => ({
+      date: entry.entryDate.toISOString().split('T')[0],
+      time: entry.entryTime,
+      truckNumber: entry.truckNumber,
+      truckName: entry.truckName || 'N/A',
+      entryType: entry.entryType,
+      materialType: entry.materialType || 'N/A',
+      units: entry.units,
+      ratePerUnit: entry.ratePerUnit,
+      totalAmount: entry.totalAmount,
+    }));
+
+    const otherExpensesForExport = otherExpenses.map(expense => ({
+      date: expense.date.toISOString().split('T')[0],
+      time: expense.date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      truckNumber: 'N/A',
+      truckName: 'N/A',
+      entryType: 'Expense',
+      materialType: expense.expensesName || 'Expense',
+      units: 'N/A',
+      ratePerUnit: 'N/A',
+      totalAmount: expense.amount,
+    }));
+
+    const allEntries = [
+      ...truckEntriesForExport,
+      ...otherExpensesForExport,
+    ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const exportData = {
+      reportInfo: {
+        title: 'CrusherMate Report (PDF)',
+        generatedBy: 'CrusherMate System',
+        organization: organizationId,
+        dateRange: { startDate, endDate },
+      },
+      entries: allEntries,
+    };
+
+    // Generate PDF
+    const pdfBuffer = await generatePdf(exportData);
+    const fileName = `CrusherMate_Report_${
+      new Date().toISOString().split('T')[0]
+    }.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('❌ PDF Download Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate PDF',
+      error: error.message,
+    });
+  }
+});
+
 // Test endpoint to verify deployment
 app.get('/api/test-download', (req, res) => {
   res.json({
