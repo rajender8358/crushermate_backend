@@ -5,54 +5,37 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 // @route   GET /api/config/app
 // @access  Private
 const getAppConfig = asyncHandler(async (req, res) => {
-  const { organizationId } = req.user;
-
   try {
-    // Get current material rates for the organization
-    const materialRates = await MaterialRate.find({
-      organization: organizationId,
-    });
-    const formattedRates = materialRates.reduce((acc, rate) => {
-      acc[rate.materialType] = {
+    // Get current material rates globally
+    console.log('🔍 ConfigController - Querying for global material rates');
+    const materialRates = await MaterialRate.find({});
+    console.log('🔍 ConfigController - Found', materialRates.length, 'rates');
+    materialRates.forEach(r =>
+      console.log('  -', r.materialType, ':', r.currentRate),
+    );
+
+    // Build rates from database
+    const formattedRates = {};
+
+    // Add database rates
+    materialRates.forEach(rate => {
+      formattedRates[rate.materialType] = {
         currentRate: rate.currentRate,
         lastUpdated: rate.effectiveDate,
         updatedBy: rate.updatedBy,
       };
-      return acc;
-    }, {});
-
-    // Add default rates for common materials if they're not in the database
-    const defaultRates = {
-      'Raw Stone': { currentRate: 18000 },
-      '1 1/2" Metal': { currentRate: 28000 },
-      '3/4" Jalli': { currentRate: 22000 },
-      '1/2" Jalli': { currentRate: 20000 },
-      '1/4" Kuranai': { currentRate: 18000 },
-      'Dust': { currentRate: 15000 },
-      'Wetmix': { currentRate: 25000 },
-      'M sand': { currentRate: 22000 },
-      'P sand': { currentRate: 20000 },
-    };
-
-    // Add default rates for materials that don't have rates in the database
-    Object.keys(defaultRates).forEach(materialType => {
-      if (!formattedRates[materialType]) {
-        formattedRates[materialType] = defaultRates[materialType];
-      }
     });
 
-    // Get available material types for the organization
-    let materialTypes = await MaterialRate.distinct('materialType', {
-      organization: organizationId,
-    });
+    // Get available material types globally
+    let materialTypes = await MaterialRate.distinct('materialType');
 
     // If no material types found in database, use default ones
     if (materialTypes.length === 0) {
       materialTypes = [
-        '1 1/2" Metal',
-        '3/4" Jalli',
-        '1/2" Jalli',
-        '1/4" Kuranai',
+        '1 1/2 Metal',
+        '3/4 Jalli',
+        '1/2 Jalli',
+        '1/4 Kuranai',
         'Dust',
         'Wetmix',
         'M sand',
@@ -140,12 +123,8 @@ const calculateTotal = asyncHandler(async (req, res) => {
     );
   }
 
-  if (unitsNum <= 0 || rateNum <= 0) {
-    throw new AppError(
-      'Units and rate must be greater than 0',
-      400,
-      'VALIDATION_ERROR',
-    );
+  if (unitsNum <= 0) {
+    throw new AppError('Units must be greater than 0', 400, 'VALIDATION_ERROR');
   }
 
   // Calculate total with proper rounding
@@ -187,23 +166,19 @@ const calculateTotal = asyncHandler(async (req, res) => {
 // @route   GET /api/config/rates
 // @access  Private
 const getCurrentRates = asyncHandler(async (req, res) => {
-  const { organizationId } = req.user;
   const { units = 1 } = req.query;
   const unitsNum = parseFloat(units);
 
-  const materialRates = await MaterialRate.find({
-    organization: organizationId,
-    isActive: true,
-  });
+  const materialRates = await MaterialRate.find({});
 
   const ratesWithCalculations = materialRates.map(rate => {
-    const totalForUnits = unitsNum * rate.rate;
+    const totalForUnits = unitsNum * rate.currentRate;
 
     return {
       materialType: rate.materialType,
-      currentRate: rate.rate,
-      lastUpdated: rate.startDate,
-      updatedBy: rate.setBy,
+      currentRate: rate.currentRate,
+      lastUpdated: rate.effectiveDate,
+      updatedBy: rate.updatedBy,
       calculation: {
         units: unitsNum,
         totalAmount: Math.round(totalForUnits * 100) / 100,
@@ -212,7 +187,7 @@ const getCurrentRates = asyncHandler(async (req, res) => {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0,
-          }).format(rate.rate),
+          }).format(rate.currentRate),
           total: new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -260,15 +235,17 @@ const validateTruckEntry = asyncHandler(async (req, res) => {
   if (entryType === 'Sales') {
     if (!materialType) {
       errors.push('Material type is required for Sales entries');
-    } else if (![
-      'M-Sand',
-      'P-Sand',
-      'Blue Metal 0.5in',
-      'Blue Metal 0.75in',
-      'Jally',
-      'Kurunai',
-      'Mixed'
-    ].includes(materialType)) {
+    } else if (
+      ![
+        'M-Sand',
+        'P-Sand',
+        'Blue Metal 0.5in',
+        'Blue Metal 0.75in',
+        'Jally',
+        'Kurunai',
+        'Mixed',
+      ].includes(materialType)
+    ) {
       errors.push('Invalid material type selected');
     }
   }
@@ -296,20 +273,8 @@ const validateTruckEntry = asyncHandler(async (req, res) => {
     const rateNum = parseFloat(ratePerUnit);
     if (isNaN(rateNum)) {
       errors.push('Rate must be a valid number');
-    } else if (rateNum <= 0) {
-      errors.push('Rate must be greater than 0');
-    } else if (rateNum > 100000) {
-      errors.push('Rate cannot exceed ₹100,000');
     }
-
-    // Check against current market rates for Sales
-    if (entryType === 'Sales' && materialType && rateNum) {
-      // This would compare against current rates and warn if significantly different
-      // For now, just a placeholder
-      if (rateNum < 15000 || rateNum > 30000) {
-        warnings.push('Rate seems unusual compared to current market rates');
-      }
-    }
+    // No minimum or maximum rate restrictions - users can enter any value
   }
 
   const isValid = errors.length === 0;

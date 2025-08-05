@@ -22,7 +22,6 @@ const materialRateRoutes = require('./routes/materialRateRoutes');
 const organizationRoutes = require('./routes/organizationRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const configRoutes = require('./routes/configRoutes');
-const { getAppConfig } = require('./controllers/configController');
 const reportRoutes = require('./routes/reportRoutes');
 const downloadRoutes = require('./routes/downloadRoutes');
 const otherExpenseRoutes = require('./routes/expenses');
@@ -137,7 +136,79 @@ app.use('/api/expenses', otherExpenseRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 // Public app config endpoint (no auth required)
-app.get('/api/config/app', getAppConfig);
+app.get('/api/config/app', async (req, res) => {
+  try {
+    // Get material rates from database
+    const MaterialRate = require('./models/MaterialRate');
+    const dbRates = await MaterialRate.find({});
+
+    // Convert database rates to expected format
+    const defaultRates = {};
+    dbRates.forEach(rate => {
+      defaultRates[rate.materialType] = { currentRate: rate.currentRate };
+    });
+
+    const materialTypes = [
+      '1 1/2 Metal',
+      '3/4 Jalli',
+      '1/2 Jalli',
+      '1/4 Kuranai',
+      'Dust',
+      'Wetmix',
+      'M sand',
+      'P sand',
+    ];
+
+    const formattedMaterialTypes = materialTypes.map(materialType => ({
+      value: materialType,
+      label: materialType,
+    }));
+
+    const entryTypes = [
+      {
+        value: 'Sales',
+        label: 'Sales',
+        description: 'Revenue from material sales',
+        requiresMaterial: true,
+      },
+      {
+        value: 'Raw Stone',
+        label: 'Raw Stone',
+        description: 'Raw material purchases',
+        requiresMaterial: false,
+      },
+    ];
+
+    const businessRules = {
+      validation: {
+        truckNumberPattern:
+          '^[A-Z]{2}[\\s\\-]?[0-9]{2}[\\s\\-]?[A-Z]{1,2}[\\s\\-]?[0-9]{4}$',
+        units: { min: 0.1, max: 100 },
+        rate: { min: 0, max: 999999 }, // No practical limit on rates
+      },
+      calculations: {
+        gstRate: 0.18,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: {
+        entryTypes,
+        materialTypes: formattedMaterialTypes,
+        materialRates: defaultRates,
+        businessRules,
+      },
+    });
+  } catch (error) {
+    console.error('Error in public app config:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to load app configuration',
+      error: error.message,
+    });
+  }
+});
 app.use('/api/config', authenticateToken, configRoutes);
 
 // Test route for other-expenses debugging

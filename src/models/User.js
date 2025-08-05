@@ -100,7 +100,7 @@ userSchema.statics.getActiveUsers = function () {
 // Optimized findOne method for login
 userSchema.statics.findByUsernameForLogin = function (username) {
   return this.findOne({
-    username: username.toLowerCase(),
+    username: { $regex: new RegExp(`^${username}$`, 'i') }, // Case-insensitive
     isActive: true,
   })
     .populate('organization')

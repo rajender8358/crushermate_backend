@@ -44,8 +44,8 @@ const createTruckEntryValidation = [
   body('ratePerUnit').custom(value => {
     // Handle both string and number values from multipart form data
     const rateValue = parseFloat(value);
-    if (isNaN(rateValue) || rateValue < 1) {
-      throw new Error('Rate per unit must be greater than 0');
+    if (isNaN(rateValue)) {
+      throw new Error('Rate per unit must be a valid number');
     }
     return true;
   }),
@@ -107,8 +107,8 @@ const updateTruckEntryValidation = [
       if (!value) return true; // Optional field
       // Handle both string and number values from multipart form data
       const rateValue = parseFloat(value);
-      if (isNaN(rateValue) || rateValue < 1) {
-        throw new Error('Rate per unit must be greater than 0');
+      if (isNaN(rateValue)) {
+        throw new Error('Rate per unit must be a valid number');
       }
       return true;
     }),

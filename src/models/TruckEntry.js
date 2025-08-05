@@ -38,10 +38,10 @@ const truckEntrySchema = new mongoose.Schema(
     materialType: {
       type: String,
       enum: [
-        '1 1/2" Metal',
-        '3/4" Jalli',
-        '1/2" Jalli',
-        '1/4" Kuranai',
+        '1 1/2 Metal',
+        '3/4 Jalli',
+        '1/2 Jalli',
+        '1/4 Kuranai',
         'Dust',
         'Wetmix',
         'M sand',
@@ -57,10 +57,10 @@ const truckEntrySchema = new mongoose.Schema(
             return (
               value &&
               [
-                '1 1/2" Metal',
-                '3/4" Jalli',
-                '1/2" Jalli',
-                '1/4" Kuranai',
+                '1 1/2 Metal',
+                '3/4 Jalli',
+                '1/2 Jalli',
+                '1/4 Kuranai',
                 'Dust',
                 'Wetmix',
                 'M sand',
@@ -82,7 +82,7 @@ const truckEntrySchema = new mongoose.Schema(
     ratePerUnit: {
       type: Number,
       required: [true, 'Rate per unit is required'],
-      min: [1, 'Rate must be greater than 0'],
+      min: [0, 'Rate cannot be negative'],
     },
     totalAmount: {
       type: Number,
@@ -243,8 +243,6 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
   const totalOtherExpenses = otherExpensesSummary[0]?.totalAmount || 0;
   const otherExpensesCount = otherExpensesSummary[0]?.count || 0;
 
-
-
   // Format the summary
   const result = {
     totalSales: 0,
@@ -271,8 +269,6 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
   result.totalEntries =
     result.salesCount + result.rawStoneCount + result.otherExpensesCount;
   result.netProfit = result.totalSales - result.totalExpenses;
-
-  
 
   // Fallback: If aggregation returns 0, calculate manually
   if (result.totalSales === 0 && result.totalRawStone === 0) {
@@ -324,8 +320,6 @@ truckEntrySchema.statics.getSummaryByDateRange = async function (
     result.totalEntries =
       result.salesCount + result.rawStoneCount + result.otherExpensesCount;
     result.netProfit = result.totalSales - result.totalExpenses;
-
-
   }
 
   return result;

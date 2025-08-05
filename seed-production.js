@@ -69,24 +69,24 @@ const seedMaterialRates = async adminUser => {
   try {
     const defaultRates = [
       {
-        materialType: '1 1/2" Metal',
+        materialType: '1 1/2 Metal',
         currentRate: 28000,
-        notes: 'Market rate for 1 1/2" Metal per unit',
+        notes: 'Market rate for 1 1/2 Metal per unit',
       },
       {
-        materialType: '3/4" Jalli',
+        materialType: '3/4 Jalli',
         currentRate: 22000,
-        notes: 'Market rate for 3/4" Jalli per unit',
+        notes: 'Market rate for 3/4 Jalli per unit',
       },
       {
-        materialType: '1/2" Jalli',
+        materialType: '1/2 Jalli',
         currentRate: 20000,
-        notes: 'Market rate for 1/2" Jalli per unit',
+        notes: 'Market rate for 1/2 Jalli per unit',
       },
       {
-        materialType: '1/4" Kuranai',
+        materialType: '1/4 Kuranai',
         currentRate: 18000,
-        notes: 'Market rate for 1/4" Kuranai per unit',
+        notes: 'Market rate for 1/4 Kuranai per unit',
       },
       {
         materialType: 'Dust',

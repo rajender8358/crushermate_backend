@@ -6,6 +6,7 @@ const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
 const TruckEntry = require('../models/TruckEntry');
 const Organization = require('../models/Organization');
+const OtherExpense = require('../models/OtherExpense');
 
 // Connect to MongoDB
 const connectDB = async () => {
@@ -68,24 +69,24 @@ const seedMaterialRates = async adminUser => {
   try {
     const defaultRates = [
       {
-        materialType: '1 1/2" Metal',
+        materialType: '1 1/2 Metal',
         currentRate: 28000,
-        notes: 'Market rate for 1 1/2" Metal per unit',
+        notes: 'Market rate for 1 1/2 Metal per unit',
       },
       {
-        materialType: '3/4" Jalli',
+        materialType: '3/4 Jalli',
         currentRate: 22000,
-        notes: 'Market rate for 3/4" Jalli per unit',
+        notes: 'Market rate for 3/4 Jalli per unit',
       },
       {
-        materialType: '1/2" Jalli',
+        materialType: '1/2 Jalli',
         currentRate: 20000,
-        notes: 'Market rate for 1/2" Jalli per unit',
+        notes: 'Market rate for 1/2 Jalli per unit',
       },
       {
-        materialType: '1/4" Kuranai',
+        materialType: '1/4 Kuranai',
         currentRate: 18000,
-        notes: 'Market rate for 1/4" Kuranai per unit',
+        notes: 'Market rate for 1/4 Kuranai per unit',
       },
       {
         materialType: 'Dust',
@@ -153,18 +154,20 @@ const seedSampleTruckEntries = async adminUser => {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA01AB1234',
+        truckName: 'Ramesh Kumar',
         entryType: 'Sales',
-        materialType: 'M-Sand',
+        materialType: 'M sand',
         units: 10,
         ratePerUnit: 22000,
         entryTime: '09:30',
         entryDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // Yesterday
-        notes: 'Sample M-Sand sales entry',
+        notes: 'Sample M sand sales entry',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA02CD5678',
+        truckName: 'Suresh Patel',
         entryType: 'Raw Stone',
         materialType: null,
         units: 15,
@@ -177,73 +180,79 @@ const seedSampleTruckEntries = async adminUser => {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA03EF9012',
+        truckName: 'Mohan Singh',
         entryType: 'Sales',
-        materialType: 'P-Sand',
+        materialType: 'P sand',
         units: 8,
         ratePerUnit: 20000,
         entryTime: '11:45',
         entryDate: new Date(), // Today
-        notes: 'Sample P-Sand sales',
+        notes: 'Sample P sand sales',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA04GH3456',
+        truckName: 'Rajesh Kumar',
         entryType: 'Sales',
-        materialType: 'Blue Metal 0.5in',
+        materialType: '1 1/2 Metal',
         units: 12,
         ratePerUnit: 24000,
         entryTime: '16:20',
         entryDate: new Date(), // Today
-        notes: 'Sample Blue Metal 0.5in sales',
+        notes: 'Sample 1 1/2 Metal sales',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA05IJ7890',
+        truckName: 'Amit Sharma',
         entryType: 'Sales',
-        materialType: 'Blue Metal 0.75in',
+        materialType: '3/4 Jalli',
         units: 6,
         ratePerUnit: 25000,
         entryTime: '10:30',
         entryDate: new Date(), // Today
-        notes: 'Sample Blue Metal 0.75in sales',
+        notes: 'Sample 3/4 Jalli sales',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA06KL2345',
+        truckName: 'Vikram Singh',
         entryType: 'Sales',
-        materialType: 'Jally',
+        materialType: '1/2 Jalli',
         units: 15,
         ratePerUnit: 18000,
         entryTime: '13:45',
         entryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        notes: 'Sample Jally sales',
+        notes: 'Sample 1/2 Jalli sales',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA07MN6789',
+        truckName: 'Deepak Verma',
         entryType: 'Sales',
-        materialType: 'Kurunai',
+        materialType: '1/4 Kuranai',
         units: 20,
         ratePerUnit: 16000,
         entryTime: '15:20',
         entryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        notes: 'Sample Kurunai sales',
+        notes: 'Sample 1/4 Kuranai sales',
       },
       {
         userId: adminUser._id,
         organization: adminUser.organization,
         truckNumber: 'KA08OP0123',
+        truckName: 'Sanjay Gupta',
         entryType: 'Sales',
-        materialType: 'Mixed',
+        materialType: 'Dust',
         units: 10,
         ratePerUnit: 20000,
         entryTime: '12:00',
         entryDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-        notes: 'Sample Mixed materials sales',
+        notes: 'Sample Dust sales',
       },
     ];
 
@@ -316,9 +325,135 @@ const clearDatabase = async () => {
       MaterialRate.deleteMany({}),
       TruckEntry.deleteMany({}),
       Organization.deleteMany({}),
+      OtherExpense.deleteMany({}),
     ]);
   } catch (error) {
     console.error('❌ Error clearing database:', error.message);
+    throw error;
+  } finally {
+    await mongoose.connection.close();
+    console.log('📴 Database connection closed');
+  }
+};
+
+// Clear all data except MaterialRates
+const clearExceptMaterialRates = async () => {
+  try {
+    await connectDB();
+
+    await Promise.all([
+      User.deleteMany({}),
+      TruckEntry.deleteMany({}),
+      Organization.deleteMany({}),
+      OtherExpense.deleteMany({}),
+    ]);
+
+    console.log('✅ Cleared all data except MaterialRates');
+  } catch (error) {
+    console.error('❌ Error clearing database:', error.message);
+    throw error;
+  } finally {
+    await mongoose.connection.close();
+    console.log('📴 Database connection closed');
+  }
+};
+
+// Seed custom organizations and users
+const seedCustomData = async () => {
+  try {
+    await connectDB();
+
+    console.log('🏢 Creating organizations...');
+
+    const organizations = [
+      { name: 'C001' },
+      { name: 'C002' },
+      { name: 'Test' },
+    ];
+
+    const createdOrganizations = [];
+
+    // Create organizations with their owners
+    for (let i = 0; i < organizations.length; i++) {
+      const orgData = organizations[i];
+      const existingOrg = await Organization.findOne({ name: orgData.name });
+
+      if (existingOrg) {
+        console.log(`📝 Organization ${orgData.name} already exists`);
+        createdOrganizations.push(existingOrg);
+      } else {
+        // Create owner user first
+        const ownerUsername = `${orgData.name}_owner`;
+        const password = 'password123';
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        const ownerUser = await User.create({
+          username: ownerUsername,
+          password: hashedPassword,
+          role: 'owner',
+          isActive: true,
+        });
+
+        // Create organization with owner
+        const organization = await Organization.create({
+          name: orgData.name,
+          owner: ownerUser._id,
+          members: [ownerUser._id],
+        });
+
+        // Update owner user with organization
+        ownerUser.organization = organization._id;
+        await ownerUser.save();
+
+        console.log(
+          `✅ Created organization: ${orgData.name} with owner: ${ownerUsername}`,
+        );
+        createdOrganizations.push(organization);
+      }
+    }
+
+    console.log('👥 Creating additional users...');
+
+    const users = [
+      { username: 'C001_user', role: 'user', orgIndex: 0 },
+      { username: 'C002_user', role: 'user', orgIndex: 1 },
+      { username: 'test_user', role: 'user', orgIndex: 2 },
+    ];
+
+    const password = 'password123';
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    for (const userData of users) {
+      const existingUser = await User.findOne({ username: userData.username });
+
+      if (existingUser) {
+        console.log(`📝 User ${userData.username} already exists`);
+      } else {
+        const user = await User.create({
+          username: userData.username,
+          password: hashedPassword,
+          role: userData.role,
+          organization: createdOrganizations[userData.orgIndex]._id,
+          isActive: true,
+        });
+
+        // Add user to organization members
+        createdOrganizations[userData.orgIndex].members.push(user._id);
+        await createdOrganizations[userData.orgIndex].save();
+
+        console.log(
+          `✅ Created user: ${userData.username} (${userData.role}) in ${
+            createdOrganizations[userData.orgIndex].name
+          }`,
+        );
+      }
+    }
+
+    console.log('✅ Custom data seeding completed successfully!');
+  } catch (error) {
+    console.error('❌ Error seeding custom data:', error.message);
     throw error;
   } finally {
     await mongoose.connection.close();
@@ -336,6 +471,12 @@ switch (command) {
   case 'clear':
     clearDatabase();
     break;
+  case 'clear-except-rates':
+    clearExceptMaterialRates();
+    break;
+  case 'custom':
+    seedCustomData();
+    break;
   case 'reset':
     clearDatabase().then(() => seedDatabase());
     break;
@@ -346,6 +487,8 @@ switch (command) {
 module.exports = {
   seedDatabase,
   clearDatabase,
+  clearExceptMaterialRates,
+  seedCustomData,
   seedOrganizationAndAdmin,
   seedMaterialRates,
   seedSampleTruckEntries,

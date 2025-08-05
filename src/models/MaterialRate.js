@@ -2,25 +2,21 @@ const mongoose = require('mongoose');
 
 const materialRateSchema = new mongoose.Schema(
   {
-    organization: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Organization',
-      required: [true, 'Rate must belong to an organization'],
-    },
     materialType: {
       type: String,
       required: [true, 'Material type is required'],
       enum: [
-        '1 1/2" Metal',
-        '3/4" Jalli',
-        '1/2" Jalli',
-        '1/4" Kuranai',
+        '1 1/2 Metal',
+        '3/4 Jalli',
+        '1/2 Jalli',
+        '1/4 Kuranai',
         'Dust',
         'Wetmix',
         'M sand',
         'P sand',
         'Raw Stone'
       ],
+      unique: true, // Only one rate per material type globally
     },
     currentRate: {
       type: Number,
@@ -55,22 +51,13 @@ const materialRateSchema = new mongoose.Schema(
   },
 );
 
-materialRateSchema.index(
-  { organization: 1, materialType: 1 },
-  { unique: true },
-);
-
 // Method to update a rate and record history
 materialRateSchema.statics.updateRate = async function (
-  organizationId,
   materialType,
   newRate,
   userId,
 ) {
-  const existingRate = await this.findOne({
-    organization: organizationId,
-    materialType,
-  });
+  const existingRate = await this.findOne({ materialType });
 
   if (existingRate) {
     // If rate already exists, update it
@@ -87,7 +74,6 @@ materialRateSchema.statics.updateRate = async function (
   } else {
     // If rate doesn't exist, create it
     return this.create({
-      organization: organizationId,
       materialType,
       currentRate: newRate,
       updatedBy: userId,
@@ -96,11 +82,8 @@ materialRateSchema.statics.updateRate = async function (
   }
 };
 
-materialRateSchema.statics.getRatesForOrganization = function (organizationId) {
-  return this.find({ organization: organizationId }).populate(
-    'updatedBy',
-    'username',
-  );
+materialRateSchema.statics.getAllRates = function () {
+  return this.find({}).populate('updatedBy', 'username');
 };
 
 materialRateSchema.statics.getMaterialTypes = async function () {

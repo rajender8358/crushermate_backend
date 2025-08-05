@@ -1,15 +1,11 @@
 const MaterialRate = require('../models/MaterialRate');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
-// @desc    Get all material rates for the organization
+// @desc    Get all material rates (global)
 // @route   GET /api/material-rates
 // @access  Private
 const getMaterialRates = asyncHandler(async (req, res) => {
-  const { organizationId } = req.user;
-
-  const rates = await MaterialRate.find({
-    organization: organizationId,
-  });
+  const rates = await MaterialRate.getAllRates();
 
   res.json({
     success: true,
@@ -17,11 +13,11 @@ const getMaterialRates = asyncHandler(async (req, res) => {
   });
 });
 
-// @desc    Create or update a material rate
+// @desc    Create or update a material rate (global)
 // @route   POST /api/material-rates
 // @access  Private (Owner only)
 const updateRate = asyncHandler(async (req, res) => {
-  const { organizationId, role } = req.user;
+  const { role } = req.user;
   const { materialType, rate } = req.body;
 
   if (role !== 'owner') {
@@ -40,11 +36,8 @@ const updateRate = asyncHandler(async (req, res) => {
     );
   }
 
-  // Find the current rate for this organization and material type
-  const currentRate = await MaterialRate.findOne({
-    organization: organizationId,
-    materialType,
-  });
+  // Find the current rate for this material type
+  const currentRate = await MaterialRate.findOne({ materialType });
 
   // If the rate is the same, do nothing
   if (currentRate && currentRate.currentRate === parseFloat(rate)) {
@@ -71,7 +64,6 @@ const updateRate = asyncHandler(async (req, res) => {
   } else {
     // Create new rate
     result = await MaterialRate.create({
-      organization: organizationId,
       materialType,
       currentRate: parseFloat(rate),
       updatedBy: req.user.id,
