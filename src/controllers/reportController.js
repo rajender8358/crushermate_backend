@@ -9,7 +9,8 @@ const path = require('path');
 const fs = require('fs-extra');
 const { v4: uuidv4 } = require('uuid');
 
-const TEMP_DIR = path.join(__dirname, '..', 'temp');
+// Removed temp directory for serverless compatibility
+// const TEMP_DIR = path.join(__dirname, '..', 'temp');
 const downloadTokens = new Map();
 
 // @desc    Get report data with filters
@@ -500,19 +501,8 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
       format,
     });
 
-    // Generate a temporary download token
-    const downloadToken = jwt.sign(
-      {
-        userId: req.user.id,
-        organization: organizationId,
-        startDate,
-        endDate,
-        format,
-        type: 'download',
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '5m' }, // Token expires in 5 minutes
-    );
+    // Generate a simple download token (no JWT needed)
+    const downloadToken = uuidv4();
 
     console.log('🔍 Generated download token:', downloadToken);
 
@@ -581,11 +571,10 @@ const downloadWithToken = asyncHandler(async (req, res) => {
   try {
     const { token } = req.params;
 
-    // Verify the download token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Get download data from token (no JWT verification needed)
     const downloadData = downloadTokens.get(token);
 
-    if (!downloadData || decoded.type !== 'download') {
+    if (!downloadData) {
       throw new AppError('Invalid or expired download token', 401);
     }
 
@@ -606,10 +595,8 @@ const downloadWithToken = asyncHandler(async (req, res) => {
       organization: downloadData.organization,
     };
 
-    // Role-based filtering
-    if (decoded.userId !== downloadData.userId) {
-      filter.userId = downloadData.userId;
-    }
+    // Organization-based filtering only (no user filtering for public downloads)
+    // Data is already filtered by organization in downloadData.organization
 
     const entries = await TruckEntry.find(filter)
       .populate('userId', 'username email')

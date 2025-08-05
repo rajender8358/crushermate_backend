@@ -4,8 +4,9 @@ const fs = require('fs-extra');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
-const TEMP_DIR = path.join(__dirname, '..', 'temp');
-fs.ensureDirSync(TEMP_DIR);
+// Removed temp directory creation for serverless compatibility
+// const TEMP_DIR = path.join(__dirname, '..', 'temp');
+// fs.ensureDirSync(TEMP_DIR);
 
 const formatCurrency = amount => `Rs. ${amount.toLocaleString('en-IN')}`;
 const formatDate = dateString =>
