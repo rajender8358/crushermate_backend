@@ -220,8 +220,8 @@ app.get('/api/expenses-test', authenticateToken, (req, res) => {
   });
 });
 
-// Public download route (no authentication required) - MUST come before /api/reports
-app.use('/api/reports/download', downloadRoutes);
+// Public download route (no authentication required) - separate path to avoid conflicts
+app.use('/api/download', downloadRoutes);
 
 // Test data route for debugging (no auth required)
 app.get('/api/test-data', async (req, res) => {

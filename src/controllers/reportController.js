@@ -538,7 +538,7 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
     // Return the download URL
     const downloadUrl = `${req.protocol}://${req.get(
       'host',
-    )}/api/reports/download/${downloadToken}`;
+    )}/api/download/${downloadToken}`;
 
     const responseData = {
       success: true,
@@ -556,6 +556,89 @@ const generateBrowserDownload = asyncHandler(async (req, res) => {
     res.json(responseData);
   } catch (error) {
     console.error('--- BROWSER DOWNLOAD ERROR ---', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate download URL.',
+      error: error.message,
+    });
+  }
+});
+
+// @desc    Generate public download URL (no authentication required)
+// @route   POST /api/download/generate
+// @access  Public
+const generatePublicDownload = asyncHandler(async (req, res) => {
+  try {
+    const { startDate, endDate, format = 'pdf', organizationId } = req.body;
+
+    if (!startDate || !endDate || !organizationId) {
+      throw new AppError(
+        'Start date, end date, and organization ID are required',
+        400,
+      );
+    }
+
+    console.log('🔍 Generating public download with:', {
+      organizationId,
+      startDate,
+      endDate,
+      format,
+    });
+
+    // Generate a simple download token (no JWT needed)
+    const downloadToken = uuidv4();
+
+    console.log('🔍 Generated download token:', downloadToken);
+
+    // Store the download token
+    downloadTokens.set(downloadToken, {
+      organization: organizationId,
+      startDate,
+      endDate,
+      format,
+      createdAt: new Date(),
+    });
+
+    console.log('🔍 Stored download token in memory');
+
+    // Get summary data for the response
+    const summary = await TruckEntry.getSummaryByDateRange(
+      new Date(startDate),
+      new Date(endDate),
+      { organization: organizationId },
+    );
+
+    // Get entry count
+    const entriesCount = await TruckEntry.countDocuments({
+      status: 'active',
+      entryDate: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate + 'T23:59:59.999Z'),
+      },
+      organization: organizationId,
+    });
+
+    // Return the download URL
+    const downloadUrl = `${req.protocol}://${req.get(
+      'host',
+    )}/api/download/${downloadToken}`;
+
+    const responseData = {
+      success: true,
+      data: {
+        downloadUrl,
+        fileName: `CrusherMate_Report_${
+          new Date().toISOString().split('T')[0]
+        }.${format}`,
+        entriesCount,
+        summary,
+      },
+    };
+
+    console.log('🔍 Sending response:', responseData);
+    res.json(responseData);
+  } catch (error) {
+    console.error('--- PUBLIC DOWNLOAD ERROR ---', error);
     res.status(500).json({
       success: false,
       message: 'Failed to generate download URL.',
@@ -871,6 +954,7 @@ module.exports = {
   generateExportData,
   getReportTemplates,
   generateBrowserDownload,
+  generatePublicDownload,
   downloadWithToken,
   testDatabaseData,
 };
