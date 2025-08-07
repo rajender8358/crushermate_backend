@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const connectDB = async () => {
+const connectDB = async (retryCount = 0) => {
   try {
     // Use environment variable or fallback to Atlas connection
     const mongoURI =
@@ -14,14 +14,16 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
       serverSelectionTimeoutMS:
-        parseInt(process.env.DB_SERVER_SELECTION_TIMEOUT) || 15000, // Increased timeout
-      socketTimeoutMS: parseInt(process.env.DB_SOCKET_TIMEOUT) || 45000,
-      connectTimeoutMS: parseInt(process.env.DB_CONNECT_TIMEOUT) || 30000,
-      maxPoolSize: parseInt(process.env.DB_MAX_POOL_SIZE) || 10,
-      minPoolSize: parseInt(process.env.DB_MIN_POOL_SIZE) || 2,
-      maxIdleTimeMS: 30000,
+        parseInt(process.env.DB_SERVER_SELECTION_TIMEOUT) || 30000, // Increased timeout for production
+      socketTimeoutMS: parseInt(process.env.DB_SOCKET_TIMEOUT) || 60000, // Increased socket timeout
+      connectTimeoutMS: parseInt(process.env.DB_CONNECT_TIMEOUT) || 60000, // Increased connect timeout
+      maxPoolSize: parseInt(process.env.DB_MAX_POOL_SIZE) || 5, // Reduced for serverless
+      minPoolSize: parseInt(process.env.DB_MIN_POOL_SIZE) || 1, // Reduced for serverless
+      maxIdleTimeMS: 60000, // Increased idle time
       dbName: 'CrusherMate', // Explicitly set database name
       bufferCommands: true, // Enable mongoose buffering to prevent connection issues
+      retryWrites: true,
+      w: 'majority',
     };
 
     await mongoose.connect(mongoURI, connectionOptions);
@@ -83,8 +85,16 @@ const connectDB = async () => {
         console.log('⚠️ Continuing without MongoDB connection...');
       }
     } else {
+      // Retry logic for production
+      if (retryCount < 3) {
+        console.log(`🔄 Retrying connection... (attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          connectDB(retryCount + 1);
+        }, 2000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
       // Don't throw error - just log it and continue
-      console.log('⚠️ Continuing without MongoDB connection...');
+      console.log('⚠️ Continuing without MongoDB connection after 3 retries...');
     }
   }
 };
