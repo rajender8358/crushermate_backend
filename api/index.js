@@ -183,6 +183,15 @@ app.post('/api/download-pdf', async (req, res) => {
       ...otherExpensesForExport,
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // Calculate summary
+    const summary = {
+      totalSales: entries.reduce((sum, entry) => sum + (entry.entryType === 'Sales' ? entry.totalAmount : 0), 0),
+      totalRawStone: entries.reduce((sum, entry) => sum + (entry.entryType === 'Raw Stone' ? entry.totalAmount : 0), 0),
+      totalExpenses: otherExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+      netProfit: 0, // Will be calculated below
+    };
+    summary.netProfit = summary.totalSales - summary.totalRawStone - summary.totalExpenses;
+
     const exportData = {
       reportInfo: {
         title: 'CrusherMate Report (PDF)',
@@ -190,6 +199,7 @@ app.post('/api/download-pdf', async (req, res) => {
         organization: organizationId,
         dateRange: { startDate, endDate },
       },
+      summary,
       entries: allEntries,
     };
 
