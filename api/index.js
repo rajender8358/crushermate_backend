@@ -180,77 +180,94 @@ app.get('/api/download-pdf', async (req, res) => {
     // Pipe PDF to response
     doc.pipe(res);
 
-    // Add content to PDF
-    doc.fontSize(24).text('CrusherMate Statement', { align: 'center' });
+    // Add professional header with logo
+    doc.fontSize(28).font('Helvetica-Bold').text('CrusherMate', { align: 'center' });
+    doc.fontSize(12).font('Helvetica').text('Construction Management System', { align: 'center' });
     doc.moveDown();
-    doc
-      .fontSize(12)
-      .text(`Period: ${startDate} to ${endDate}`, { align: 'center' });
+    
+    // Add a line separator
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+    
+    // Report details
+    doc.fontSize(14).font('Helvetica-Bold').text('STATEMENT REPORT', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(12).font('Helvetica').text(`Period: ${startDate} to ${endDate}`, { align: 'center' });
+    doc.fontSize(10).font('Helvetica').text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'center' });
     doc.moveDown(2);
 
-    // Summary section
-    doc.fontSize(16).text('SUMMARY', { underline: true });
+    // Summary section with better styling
+    doc.fontSize(16).font('Helvetica-Bold').text('FINANCIAL SUMMARY', { underline: true });
     doc.moveDown();
-    doc
-      .fontSize(12)
-      .text(`Total Sales: ₹${totalSales.toLocaleString('en-IN')}`);
-    doc.text(`Total Raw Stone: ₹${totalRawStone.toLocaleString('en-IN')}`);
-    doc.text(`Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`);
-    doc
-      .fontSize(14)
-      .text(`Net Worth: ₹${netWorth.toLocaleString('en-IN')}`, { bold: true });
+    
+    // Create a summary table
+    const summaryY = doc.y;
+    doc.fontSize(12).font('Helvetica-Bold').text('Total Sales:', 50, summaryY);
+    doc.fontSize(12).font('Helvetica').text(`₹${totalSales.toLocaleString('en-IN')}`, 200, summaryY);
+    
+    doc.fontSize(12).font('Helvetica-Bold').text('Total Raw Stone:', 50, summaryY + 20);
+    doc.fontSize(12).font('Helvetica').text(`₹${totalRawStone.toLocaleString('en-IN')}`, 200, summaryY + 20);
+    
+    doc.fontSize(12).font('Helvetica-Bold').text('Total Expenses:', 50, summaryY + 40);
+    doc.fontSize(12).font('Helvetica').text(`₹${totalExpenses.toLocaleString('en-IN')}`, 200, summaryY + 40);
+    
+    doc.moveDown();
+    doc.fontSize(14).font('Helvetica-Bold').text('Net Worth:', 50, doc.y);
+    doc.fontSize(14).font('Helvetica-Bold').text(`₹${netWorth.toLocaleString('en-IN')}`, 200, doc.y);
     doc.moveDown(2);
 
-    // Truck Entries section
+    // Truck Entries section with better formatting
     if (entries.length > 0) {
-      doc.fontSize(16).text('TRUCK ENTRIES', { underline: true });
+      doc.fontSize(16).font('Helvetica-Bold').text('TRUCK ENTRIES', { underline: true });
       doc.moveDown();
-
+      
       entries.forEach((entry, index) => {
-        doc
-          .fontSize(10)
-          .text(`${index + 1}. ${entry.truckNumber} - ${entry.entryType}`);
-        doc
-          .fontSize(8)
-          .text(
-            `   Date: ${entry.entryDate.toLocaleDateString()} | Time: ${
-              entry.entryTime
-            }`,
-          );
-        doc
-          .fontSize(8)
-          .text(
-            `   Material: ${entry.materialType} | Units: ${entry.units} tons`,
-          );
-        doc
-          .fontSize(8)
-          .text(
-            `   Rate: ₹${
-              entry.ratePerUnit
-            } | Total: ₹${entry.totalAmount.toLocaleString('en-IN')}`,
-          );
-        doc.moveDown(0.5);
+        // Entry header
+        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${entry.truckNumber} - ${entry.entryType}`, { color: '#2C3E50' });
+        
+        // Entry details in a structured format
+        const entryY = doc.y + 5;
+        doc.fontSize(9).font('Helvetica').text(`Date: ${entry.entryDate.toLocaleDateString()}`, 60, entryY);
+        doc.fontSize(9).font('Helvetica').text(`Time: ${entry.entryTime}`, 200, entryY);
+        doc.fontSize(9).font('Helvetica').text(`Material: ${entry.materialType}`, 300, entryY);
+        
+        doc.fontSize(9).font('Helvetica').text(`Units: ${entry.units} tons`, 60, entryY + 12);
+        doc.fontSize(9).font('Helvetica').text(`Rate: ₹${entry.ratePerUnit}`, 200, entryY + 12);
+        doc.fontSize(9).font('Helvetica-Bold').text(`Total: ₹${entry.totalAmount.toLocaleString('en-IN')}`, 300, entryY + 12);
+        
+        doc.moveDown(1);
       });
       doc.moveDown();
     }
 
-    // Expenses section
+    // Expenses section with better formatting
     if (otherExpenses.length > 0) {
-      doc.fontSize(16).text('EXPENSES', { underline: true });
+      doc.fontSize(16).font('Helvetica-Bold').text('EXPENSES', { underline: true });
       doc.moveDown();
-
+      
       otherExpenses.forEach((expense, index) => {
-        doc.fontSize(10).text(`${index + 1}. ${expense.expensesName}`);
-        doc.fontSize(8).text(`   Date: ${expense.date.toLocaleDateString()}`);
-        doc
-          .fontSize(8)
-          .text(`   Amount: ₹${expense.amount.toLocaleString('en-IN')}`);
+        // Expense header
+        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${expense.expensesName}`, { color: '#E74C3C' });
+        
+        // Expense details
+        const expenseY = doc.y + 5;
+        doc.fontSize(9).font('Helvetica').text(`Date: ${expense.date.toLocaleDateString()}`, 60, expenseY);
+        doc.fontSize(9).font('Helvetica-Bold').text(`Amount: ₹${expense.amount.toLocaleString('en-IN')}`, 300, expenseY);
+        
         if (expense.others) {
-          doc.fontSize(8).text(`   Notes: ${expense.others}`);
+          doc.fontSize(9).font('Helvetica').text(`Notes: ${expense.others}`, 60, expenseY + 12);
         }
-        doc.moveDown(0.5);
+        
+        doc.moveDown(1);
       });
     }
+    
+    // Add footer
+    doc.moveDown(2);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+    doc.fontSize(10).font('Helvetica').text('Generated by CrusherMate System', { align: 'center' });
+    doc.fontSize(8).font('Helvetica').text('Construction Management & Analytics', { align: 'center' });
 
     // Finalize PDF
     doc.end();
