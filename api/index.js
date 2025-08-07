@@ -180,94 +180,328 @@ app.get('/api/download-pdf', async (req, res) => {
     // Pipe PDF to response
     doc.pipe(res);
 
-    // Add professional header with logo
-    doc.fontSize(28).font('Helvetica-Bold').text('CrusherMate', { align: 'center' });
-    doc.fontSize(12).font('Helvetica').text('Construction Management System', { align: 'center' });
+    // Add colorful header with CrusherMate branding
+    doc.rect(0, 0, 600, 120).fill('#1E3A8A'); // Blue header background
+    doc
+      .fontSize(32)
+      .font('Helvetica-Bold')
+      .fillColor('white')
+      .text('CrusherMate', 50, 30);
+    doc
+      .fontSize(14)
+      .font('Helvetica')
+      .fillColor('white')
+      .text('Construction Management System', 50, 65);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .fillColor('white')
+      .text('Professional Statement Report', 50, 85);
+
+    // Add logo placeholder (since we can't embed images in this PDF library)
+    doc.rect(450, 20, 80, 80).fill('#3B82F6').stroke('#FFFFFF');
+    doc
+      .fontSize(10)
+      .font('Helvetica-Bold')
+      .fillColor('white')
+      .text('LOGO', 470, 55, { align: 'center' });
+
+    // Reset colors for content
+    doc.fillColor('black');
+
+    // Statement details in a professional format
+    doc.moveDown(3);
+    doc
+      .fontSize(16)
+      .font('Helvetica-Bold')
+      .text('STATEMENT DETAILS', { underline: true });
     doc.moveDown();
-    
-    // Add a line separator
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown();
-    
-    // Report details
-    doc.fontSize(14).font('Helvetica-Bold').text('STATEMENT REPORT', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.fontSize(12).font('Helvetica').text(`Period: ${startDate} to ${endDate}`, { align: 'center' });
-    doc.fontSize(10).font('Helvetica').text(`Generated on: ${new Date().toLocaleDateString()}`, { align: 'center' });
+
+    const detailsY = doc.y;
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Statement Period:', 50, detailsY);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .text(`${startDate} to ${endDate}`, 200, detailsY);
+
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Generated Date:', 50, detailsY + 20);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .text(new Date().toLocaleDateString(), 200, detailsY + 20);
+
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .text('Report Type:', 50, detailsY + 40);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .text('Financial Statement', 200, detailsY + 40);
     doc.moveDown(2);
 
-    // Summary section with better styling
-    doc.fontSize(16).font('Helvetica-Bold').text('FINANCIAL SUMMARY', { underline: true });
+    // Financial Summary with colorful design
+    doc
+      .rect(40, doc.y - 10, 520, 80)
+      .fill('#F0F9FF')
+      .stroke('#3B82F6');
+    doc
+      .fontSize(18)
+      .font('Helvetica-Bold')
+      .fillColor('#1E3A8A')
+      .text('FINANCIAL SUMMARY', 50, doc.y);
     doc.moveDown();
-    
-    // Create a summary table
+
     const summaryY = doc.y;
-    doc.fontSize(12).font('Helvetica-Bold').text('Total Sales:', 50, summaryY);
-    doc.fontSize(12).font('Helvetica').text(`₹${totalSales.toLocaleString('en-IN')}`, 200, summaryY);
-    
-    doc.fontSize(12).font('Helvetica-Bold').text('Total Raw Stone:', 50, summaryY + 20);
-    doc.fontSize(12).font('Helvetica').text(`₹${totalRawStone.toLocaleString('en-IN')}`, 200, summaryY + 20);
-    
-    doc.fontSize(12).font('Helvetica-Bold').text('Total Expenses:', 50, summaryY + 40);
-    doc.fontSize(12).font('Helvetica').text(`₹${totalExpenses.toLocaleString('en-IN')}`, 200, summaryY + 40);
-    
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('#059669')
+      .text('Total Sales:', 60, summaryY);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(`₹${totalSales.toLocaleString('en-IN')}`, 220, summaryY);
+
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('#DC2626')
+      .text('Total Raw Stone:', 60, summaryY + 20);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(`₹${totalRawStone.toLocaleString('en-IN')}`, 220, summaryY + 20);
+
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('#D97706')
+      .text('Total Expenses:', 60, summaryY + 40);
+    doc
+      .fontSize(12)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(`₹${totalExpenses.toLocaleString('en-IN')}`, 220, summaryY + 40);
+
     doc.moveDown();
-    doc.fontSize(14).font('Helvetica-Bold').text('Net Worth:', 50, doc.y);
-    doc.fontSize(14).font('Helvetica-Bold').text(`₹${netWorth.toLocaleString('en-IN')}`, 200, doc.y);
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .fillColor('#1E3A8A')
+      .text('Net Worth:', 60, doc.y);
+    doc
+      .fontSize(14)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text(`₹${netWorth.toLocaleString('en-IN')}`, 220, doc.y);
     doc.moveDown(2);
 
-    // Truck Entries section with better formatting
+    // Truck Entries section with table format like bank statement
     if (entries.length > 0) {
-      doc.fontSize(16).font('Helvetica-Bold').text('TRUCK ENTRIES', { underline: true });
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .fillColor('#1E3A8A')
+        .text('TRUCK ENTRIES', { underline: true });
       doc.moveDown();
-      
+
+      // Table header
+      doc
+        .rect(40, doc.y - 5, 520, 25)
+        .fill('#E5E7EB')
+        .stroke('#9CA3AF');
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Date', 50, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Truck No.', 120, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Truck Name', 200, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Type', 280, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Material', 340, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Units', 420, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Rate', 480, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#374151')
+        .text('Amount', 520, doc.y);
+      doc.moveDown();
+
       entries.forEach((entry, index) => {
-        // Entry header
-        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${entry.truckNumber} - ${entry.entryType}`, { color: '#2C3E50' });
-        
-        // Entry details in a structured format
-        const entryY = doc.y + 5;
-        doc.fontSize(9).font('Helvetica').text(`Date: ${entry.entryDate.toLocaleDateString()}`, 60, entryY);
-        doc.fontSize(9).font('Helvetica').text(`Time: ${entry.entryTime}`, 200, entryY);
-        doc.fontSize(9).font('Helvetica').text(`Material: ${entry.materialType}`, 300, entryY);
-        
-        doc.fontSize(9).font('Helvetica').text(`Units: ${entry.units} tons`, 60, entryY + 12);
-        doc.fontSize(9).font('Helvetica').text(`Rate: ₹${entry.ratePerUnit}`, 200, entryY + 12);
-        doc.fontSize(9).font('Helvetica-Bold').text(`Total: ₹${entry.totalAmount.toLocaleString('en-IN')}`, 300, entryY + 12);
-        
-        doc.moveDown(1);
+        const rowY = doc.y;
+        const bgColor = index % 2 === 0 ? '#F9FAFB' : '#FFFFFF';
+        doc
+          .rect(40, rowY - 5, 520, 20)
+          .fill(bgColor)
+          .stroke('#E5E7EB');
+
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(entry.entryDate.toLocaleDateString(), 50, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(entry.truckNumber || 'N/A', 120, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(entry.truckName || 'N/A', 200, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(entry.entryType, 280, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(entry.materialType, 340, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(`${entry.units} tons`, 420, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(`₹${entry.ratePerUnit}`, 480, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#059669')
+          .text(`₹${entry.totalAmount.toLocaleString('en-IN')}`, 520, rowY);
+
+        doc.moveDown();
       });
       doc.moveDown();
     }
 
-    // Expenses section with better formatting
+    // Expenses section with table format
     if (otherExpenses.length > 0) {
-      doc.fontSize(16).font('Helvetica-Bold').text('EXPENSES', { underline: true });
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .fillColor('#DC2626')
+        .text('EXPENSES', { underline: true });
       doc.moveDown();
-      
+
+      // Table header
+      doc
+        .rect(40, doc.y - 5, 520, 25)
+        .fill('#FEF2F2')
+        .stroke('#FCA5A5');
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#7F1D1D')
+        .text('Date', 50, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#7F1D1D')
+        .text('Expense Name', 120, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#7F1D1D')
+        .text('Amount', 300, doc.y);
+      doc
+        .fontSize(11)
+        .font('Helvetica-Bold')
+        .fillColor('#7F1D1D')
+        .text('Notes', 400, doc.y);
+      doc.moveDown();
+
       otherExpenses.forEach((expense, index) => {
-        // Expense header
-        doc.fontSize(11).font('Helvetica-Bold').text(`${index + 1}. ${expense.expensesName}`, { color: '#E74C3C' });
-        
-        // Expense details
-        const expenseY = doc.y + 5;
-        doc.fontSize(9).font('Helvetica').text(`Date: ${expense.date.toLocaleDateString()}`, 60, expenseY);
-        doc.fontSize(9).font('Helvetica-Bold').text(`Amount: ₹${expense.amount.toLocaleString('en-IN')}`, 300, expenseY);
-        
-        if (expense.others) {
-          doc.fontSize(9).font('Helvetica').text(`Notes: ${expense.others}`, 60, expenseY + 12);
-        }
-        
-        doc.moveDown(1);
+        const rowY = doc.y;
+        const bgColor = index % 2 === 0 ? '#FEF2F2' : '#FFFFFF';
+        doc
+          .rect(40, rowY - 5, 520, 20)
+          .fill(bgColor)
+          .stroke('#FCA5A5');
+
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(expense.date.toLocaleDateString(), 50, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(expense.expensesName, 120, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#DC2626')
+          .text(`₹${expense.amount.toLocaleString('en-IN')}`, 300, rowY);
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('black')
+          .text(expense.others || 'N/A', 400, rowY);
+
+        doc.moveDown();
       });
     }
-    
-    // Add footer
+
+    // Add professional footer
     doc.moveDown(2);
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown();
-    doc.fontSize(10).font('Helvetica').text('Generated by CrusherMate System', { align: 'center' });
-    doc.fontSize(8).font('Helvetica').text('Construction Management & Analytics', { align: 'center' });
+    doc.rect(0, doc.y, 600, 60).fill('#1E3A8A');
+    doc
+      .fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('white')
+      .text('Generated by CrusherMate System', 50, doc.y + 20);
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .fillColor('white')
+      .text('Construction Management & Analytics Platform', 50, doc.y + 40);
+    doc
+      .fontSize(8)
+      .font('Helvetica')
+      .fillColor('white')
+      .text(`Report ID: ${Date.now()} | Page 1 of 1`, 50, doc.y + 55);
 
     // Finalize PDF
     doc.end();
