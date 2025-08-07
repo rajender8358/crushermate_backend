@@ -180,39 +180,13 @@ app.get('/api/download-pdf', async (req, res) => {
     // Pipe PDF to response
     doc.pipe(res);
 
-    // Add colorful header with CrusherMate branding
-    doc.rect(0, 0, 600, 120).fill('#86EFAC'); // Light green header background
+    // Add clean header with CrusherMate branding
+    doc.rect(0, 0, 600, 80).fill('#FFFFFF'); // White header background
     doc
       .fontSize(32)
       .font('Helvetica-Bold')
-      .fillColor('#166534')
+      .fillColor('black')
       .text('CrusherMate', 50, 30);
-
-    // Add actual logo
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      const logoPath = path.join(__dirname, 'crusherLogo.jpeg');
-      if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, 450, 20, { width: 80, height: 80 });
-      } else {
-        // Fallback to placeholder if logo not found
-        doc.rect(450, 20, 80, 80).fill('#22C55E').stroke('#FFFFFF');
-        doc
-          .fontSize(10)
-          .font('Helvetica-Bold')
-          .fillColor('white')
-          .text('LOGO', 470, 55, { align: 'center' });
-      }
-    } catch (error) {
-      // Fallback to placeholder if logo loading fails
-      doc.rect(450, 20, 80, 80).fill('#22C55E').stroke('#FFFFFF');
-      doc
-        .fontSize(10)
-        .font('Helvetica-Bold')
-        .fillColor('white')
-        .text('LOGO', 470, 55, { align: 'center' });
-    }
 
     // Reset colors for content
     doc.fillColor('black');
@@ -239,15 +213,15 @@ app.get('/api/download-pdf', async (req, res) => {
       .text(new Date().toLocaleDateString(), 200, detailsY + 20);
     doc.moveDown(2);
 
-    // Financial Summary with colorful design
+    // Financial Summary with clean design
     doc
       .rect(40, doc.y - 10, 520, 80)
-      .fill('#F0F9FF')
-      .stroke('#3B82F6');
+      .fill('#FFFFFF')
+      .stroke('#000000');
     doc
       .fontSize(18)
       .font('Helvetica-Bold')
-      .fillColor('#1E3A8A')
+      .fillColor('black')
       .text('FINANCIAL SUMMARY', 50, doc.y);
     doc.moveDown();
 
@@ -255,7 +229,7 @@ app.get('/api/download-pdf', async (req, res) => {
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
-      .fillColor('#059669')
+      .fillColor('black')
       .text('Total Sales:', 60, summaryY);
     doc
       .fontSize(12)
@@ -266,7 +240,7 @@ app.get('/api/download-pdf', async (req, res) => {
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
-      .fillColor('#DC2626')
+      .fillColor('black')
       .text('Total Raw Stone:', 60, summaryY + 20);
     doc
       .fontSize(12)
@@ -277,7 +251,7 @@ app.get('/api/download-pdf', async (req, res) => {
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
-      .fillColor('#D97706')
+      .fillColor('black')
       .text('Total Expenses:', 60, summaryY + 40);
     doc
       .fontSize(12)
@@ -289,7 +263,7 @@ app.get('/api/download-pdf', async (req, res) => {
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .fillColor('#1E3A8A')
+      .fillColor('black')
       .text('Net Worth:', 60, doc.y);
     doc
       .fontSize(14)
@@ -303,109 +277,109 @@ app.get('/api/download-pdf', async (req, res) => {
       doc
         .fontSize(16)
         .font('Helvetica-Bold')
-        .fillColor('#1E3A8A')
+        .fillColor('black')
         .text('TRUCK ENTRIES', { underline: true });
       doc.moveDown();
 
-      // Table header with proper alignment
+      // Table header with proper alignment and smaller cells
       const headerY = doc.y;
       doc
         .rect(40, headerY - 5, 520, 25)
-        .fill('#E5E7EB')
-        .stroke('#9CA3AF');
+        .fill('#F5F5F5')
+        .stroke('#000000');
       
-      // Header text with proper positioning
+      // Header text with proper positioning and smaller widths
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
+        .fillColor('black')
         .text('Date', 50, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Truck No.', 120, headerY + 5);
+        .fillColor('black')
+        .text('Truck No.', 110, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Truck Name', 200, headerY + 5);
+        .fillColor('black')
+        .text('Truck Name', 180, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Type', 280, headerY + 5);
+        .fillColor('black')
+        .text('Type', 250, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Material', 340, headerY + 5);
+        .fillColor('black')
+        .text('Material', 310, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Units', 420, headerY + 5);
+        .fillColor('black')
+        .text('Units', 380, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Rate', 480, headerY + 5);
+        .fillColor('black')
+        .text('Rate', 430, headerY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#374151')
-        .text('Amount', 520, headerY + 5);
+        .fillColor('black')
+        .text('Amount', 490, headerY + 5);
       doc.moveDown();
 
       entries.forEach((entry, index) => {
         const rowY = doc.y;
-        const bgColor = index % 2 === 0 ? '#F9FAFB' : '#FFFFFF';
+        const bgColor = index % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
         doc
           .rect(40, rowY - 5, 520, 20)
           .fill(bgColor)
-          .stroke('#E5E7EB');
+          .stroke('#000000');
 
-        // Row text with proper vertical alignment
+        // Row text with proper vertical alignment and smaller widths
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
           .text(entry.entryDate.toLocaleDateString(), 50, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
-          .text(entry.truckNumber || 'N/A', 120, rowY + 5);
+          .text(entry.truckNumber || 'N/A', 110, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
-          .text(entry.truckName || 'N/A', 200, rowY + 5);
+          .text(entry.truckName || 'N/A', 180, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
-          .text(entry.entryType, 280, rowY + 5);
+          .text(entry.entryType, 250, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
-          .text(entry.materialType, 340, rowY + 5);
+          .text(entry.materialType, 310, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
-          .text(`${entry.units} tons`, 420, rowY + 5);
+          .text(`${entry.units} tons`, 380, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
-          .text(`Rs. ${entry.ratePerUnit}`, 480, rowY + 5);
+          .text(`Rs. ${entry.ratePerUnit}`, 430, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica-Bold')
-          .fillColor('#059669')
-          .text(`Rs. ${entry.totalAmount.toLocaleString('en-IN')}`, 520, rowY + 5);
+          .fillColor('black')
+          .text(`Rs. ${entry.totalAmount.toLocaleString('en-IN')}`, 490, rowY + 5);
 
         doc.moveDown();
       });
@@ -417,7 +391,7 @@ app.get('/api/download-pdf', async (req, res) => {
       doc
         .fontSize(16)
         .font('Helvetica-Bold')
-        .fillColor('#DC2626')
+        .fillColor('black')
         .text('EXPENSES', { underline: true });
       doc.moveDown();
 
@@ -425,56 +399,56 @@ app.get('/api/download-pdf', async (req, res) => {
       const expenseHeaderY = doc.y;
       doc
         .rect(40, expenseHeaderY - 5, 520, 25)
-        .fill('#FEF2F2')
-        .stroke('#FCA5A5');
+        .fill('#F5F5F5')
+        .stroke('#000000');
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#7F1D1D')
+        .fillColor('black')
         .text('Date', 50, expenseHeaderY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#7F1D1D')
+        .fillColor('black')
         .text('Expense Name', 120, expenseHeaderY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#7F1D1D')
+        .fillColor('black')
         .text('Amount', 300, expenseHeaderY + 5);
       doc
-        .fontSize(11)
+        .fontSize(10)
         .font('Helvetica-Bold')
-        .fillColor('#7F1D1D')
+        .fillColor('black')
         .text('Notes', 400, expenseHeaderY + 5);
       doc.moveDown();
 
       otherExpenses.forEach((expense, index) => {
         const rowY = doc.y;
-        const bgColor = index % 2 === 0 ? '#FEF2F2' : '#FFFFFF';
+        const bgColor = index % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
         doc
           .rect(40, rowY - 5, 520, 20)
           .fill(bgColor)
-          .stroke('#FCA5A5');
+          .stroke('#000000');
 
         // Row text with proper vertical alignment
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
           .text(expense.date.toLocaleDateString(), 50, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
           .text(expense.expensesName, 120, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica-Bold')
-          .fillColor('#DC2626')
+          .fillColor('black')
           .text(`Rs. ${expense.amount.toLocaleString('en-IN')}`, 300, rowY + 5);
         doc
-          .fontSize(9)
+          .fontSize(8)
           .font('Helvetica')
           .fillColor('black')
           .text(expense.others || 'N/A', 400, rowY + 5);
@@ -485,21 +459,21 @@ app.get('/api/download-pdf', async (req, res) => {
 
     // Add professional footer
     doc.moveDown(2);
-    doc.rect(0, doc.y, 600, 60).fill('#86EFAC');
+    doc.rect(0, doc.y, 600, 60).fill('#FFFFFF');
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
-      .fillColor('#166534')
+      .fillColor('black')
       .text('Generated by CrusherMate System', 50, doc.y + 20);
     doc
       .fontSize(10)
       .font('Helvetica')
-      .fillColor('#166534')
+      .fillColor('black')
       .text('Track. Manage. Profit.', 50, doc.y + 40);
     doc
       .fontSize(8)
       .font('Helvetica')
-      .fillColor('#166534')
+      .fillColor('black')
       .text(`Report ID: ${Date.now()} | Page 1 of 1`, 50, doc.y + 55);
 
     // Finalize PDF
