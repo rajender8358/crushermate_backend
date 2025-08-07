@@ -1,0 +1,16 @@
+"date","time","truckNumber","truckName","entryType","materialType","units","ratePerUnit","totalAmount"
+"2025-08-06","11:10","TN66AP9699","Amman","Sales","Dust",1,800,800
+"2025-08-06","11:12","TN66AP9888","Krs","Sales","P sand",10,15000,150000
+"2025-08-06","15:23","TN99HF5586","Sps","Raw Stone","N/A",12,3000,36000
+"2025-08-06","15:23","TN55HI6452","Hmp","Raw Stone","N/A",20,3000,60000
+"2025-08-06","15:24","TN66HJ5233","Svt","Sales","P sand",6,8000,48000
+"2025-08-06","15:24","TN66AP9699","Srt","Sales","P sand",15,8000,120000
+"2025-08-06","05:41 AM","N/A","N/A","Expense","Fuel","N/A","N/A",100500
+"2025-08-05","18:43","TS08UU6767","test","Sales","1/2 Jalli",1,20000,20000
+"2025-08-05","18:44","TS08GK8989","test","Sales","Dust",1,15000,15000
+"2025-08-05","19:45","TS09UI8787","test","Sales","1/4 Kuranai",1,991,991
+"2025-08-05","20:07","TS08UH7272","test","Sales","1/4 Kuranai",1,991,991
+"2025-08-05","23:26","TS08UI9898","test","Sales","Dust",1,800,800
+"2025-08-05","02:38 PM","N/A","N/A","Expense","tip 3","N/A","N/A",500
+"2025-08-05","02:15 PM","N/A","N/A","Expense","tip2","N/A","N/A",100
+"2025-08-05","01:14 PM","N/A","N/A","Expense","tip","N/A","N/A",200

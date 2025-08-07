@@ -96,20 +96,31 @@ const generatePdf = data => {
     // Simple summary table
     const summaryTableY = summaryY + 25;
     const summaryCols = [
-      { label: 'Total Sales', value: formatCurrency(data.summary.totalSales) },
+      {
+        label: 'Total Sales',
+        value: formatCurrency(data.summary?.totalSales || 0),
+      },
       {
         label: 'Raw Stone Cost',
-        value: formatCurrency(data.summary.totalRawStone),
+        value: formatCurrency(data.summary?.totalRawStone || 0),
       },
       {
         label: 'Expenses',
-        value: formatCurrency(data.summary.totalOtherExpenses || 0),
+        value: formatCurrency(data.summary?.totalOtherExpenses || 0),
       },
-      { 
-        label: 'Net Profit', 
-        value: formatCurrency(data.summary.netProfit || (data.summary.totalSales - data.summary.totalRawStone - (data.summary.totalOtherExpenses || 0))) 
+      {
+        label: 'Net Profit',
+        value: formatCurrency(
+          data.summary?.netProfit ||
+            (data.summary?.totalSales || 0) -
+              (data.summary?.totalRawStone || 0) -
+              (data.summary?.totalOtherExpenses || 0),
+        ),
       },
-      { label: 'Total Entries', value: data.summary.totalEntries.toString() },
+      {
+        label: 'Total Entries',
+        value: (data.summary?.totalEntries || 0).toString(),
+      },
     ];
 
     summaryCols.forEach((item, index) => {
