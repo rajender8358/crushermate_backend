@@ -104,10 +104,10 @@ app.use('/api/reports', authenticateToken, reportRoutes);
 // Public download route (no authentication required) - separate path to avoid conflicts
 app.use('/api/download', downloadRoutes);
 
-// Direct PDF download endpoint - NO AUTHENTICATION REQUIRED (POST)
-app.post('/api/download-pdf', async (req, res) => {
+// Simple PDF download endpoint - NO AUTHENTICATION REQUIRED
+app.get('/api/download-pdf', async (req, res) => {
   try {
-    const { startDate, endDate, organizationId } = req.body;
+    const { startDate, endDate, organizationId } = req.query;
 
     if (!startDate || !endDate || !organizationId) {
       return res.status(400).json({
@@ -124,7 +124,6 @@ app.post('/api/download-pdf', async (req, res) => {
 
     const TruckEntry = require('../src/models/TruckEntry');
     const OtherExpense = require('../src/models/OtherExpense');
-    const { generatePdf } = require('../src/utils/exportGenerator');
 
     // Get truck entries
     const entries = await TruckEntry.find({
@@ -150,210 +149,111 @@ app.post('/api/download-pdf', async (req, res) => {
       .populate('user', 'username email')
       .sort({ date: -1 });
 
-    // Transform data for export
-    const truckEntriesForExport = entries.map(entry => ({
-      date: entry.entryDate.toISOString().split('T')[0],
-      time: entry.entryTime,
-      truckNumber: entry.truckNumber,
-      truckName: entry.truckName || 'N/A',
-      entryType: entry.entryType,
-      materialType: entry.materialType || 'N/A',
-      units: entry.units,
-      ratePerUnit: entry.ratePerUnit,
-      totalAmount: entry.totalAmount,
-    }));
+    // Calculate totals
+    const totalSales = entries.reduce(
+      (sum, entry) =>
+        sum + (entry.entryType === 'Sales' ? entry.totalAmount : 0),
+      0,
+    );
+    const totalRawStone = entries.reduce(
+      (sum, entry) =>
+        sum + (entry.entryType === 'Raw Stone' ? entry.totalAmount : 0),
+      0,
+    );
+    const totalExpenses = otherExpenses.reduce(
+      (sum, expense) => sum + expense.amount,
+      0,
+    );
+    const netWorth = totalSales - totalRawStone - totalExpenses;
 
-    const otherExpensesForExport = otherExpenses.map(expense => ({
-      date: expense.date.toISOString().split('T')[0],
-      time: expense.date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      truckNumber: 'N/A',
-      truckName: 'N/A',
-      entryType: 'Expense',
-      materialType: expense.expensesName || 'Expense',
-      units: 'N/A',
-      ratePerUnit: 'N/A',
-      totalAmount: expense.amount,
-    }));
+    // Generate simple PDF using pdfkit
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument();
 
-    const allEntries = [
-      ...truckEntriesForExport,
-      ...otherExpensesForExport,
-    ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Calculate summary
-    const summary = {
-      totalSales: entries.reduce(
-        (sum, entry) =>
-          sum + (entry.entryType === 'Sales' ? entry.totalAmount : 0),
-        0,
-      ),
-      totalRawStone: entries.reduce(
-        (sum, entry) =>
-          sum + (entry.entryType === 'Raw Stone' ? entry.totalAmount : 0),
-        0,
-      ),
-      totalExpenses: otherExpenses.reduce(
-        (sum, expense) => sum + expense.amount,
-        0,
-      ),
-      netProfit: 0, // Will be calculated below
-    };
-    summary.netProfit =
-      summary.totalSales - summary.totalRawStone - summary.totalExpenses;
-
-    const exportData = {
-      reportInfo: {
-        title: 'CrusherMate Report (PDF)',
-        generatedBy: 'CrusherMate System',
-        organization: organizationId,
-        dateRange: { startDate, endDate },
-      },
-      summary,
-      entries: allEntries,
-    };
-
-    // Generate PDF
-    const pdfBuffer = await generatePdf(exportData);
-    const fileName = `CrusherMate_Report_${
-      new Date().toISOString().split('T')[0]
-    }.pdf`;
-
+    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.send(pdfBuffer);
-  } catch (error) {
-    console.error('❌ PDF Download Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate PDF',
-      error: error.message,
-    });
-  }
-});
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="CrusherMate_Report_${startDate}_${endDate}.pdf"`,
+    );
 
-// Direct PDF download endpoint - NO AUTHENTICATION REQUIRED (GET for browser)
-app.get('/api/download-pdf', async (req, res) => {
-  try {
-    const { startDate, endDate, organizationId } = req.query;
+    // Pipe PDF to response
+    doc.pipe(res);
 
-    if (!startDate || !endDate || !organizationId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Start date, end date, and organization ID are required',
+    // Add content to PDF
+    doc.fontSize(24).text('CrusherMate Statement', { align: 'center' });
+    doc.moveDown();
+    doc
+      .fontSize(12)
+      .text(`Period: ${startDate} to ${endDate}`, { align: 'center' });
+    doc.moveDown(2);
+
+    // Summary section
+    doc.fontSize(16).text('SUMMARY', { underline: true });
+    doc.moveDown();
+    doc
+      .fontSize(12)
+      .text(`Total Sales: ₹${totalSales.toLocaleString('en-IN')}`);
+    doc.text(`Total Raw Stone: ₹${totalRawStone.toLocaleString('en-IN')}`);
+    doc.text(`Total Expenses: ₹${totalExpenses.toLocaleString('en-IN')}`);
+    doc
+      .fontSize(14)
+      .text(`Net Worth: ₹${netWorth.toLocaleString('en-IN')}`, { bold: true });
+    doc.moveDown(2);
+
+    // Truck Entries section
+    if (entries.length > 0) {
+      doc.fontSize(16).text('TRUCK ENTRIES', { underline: true });
+      doc.moveDown();
+
+      entries.forEach((entry, index) => {
+        doc
+          .fontSize(10)
+          .text(`${index + 1}. ${entry.truckNumber} - ${entry.entryType}`);
+        doc
+          .fontSize(8)
+          .text(
+            `   Date: ${entry.entryDate.toLocaleDateString()} | Time: ${
+              entry.entryTime
+            }`,
+          );
+        doc
+          .fontSize(8)
+          .text(
+            `   Material: ${entry.materialType} | Units: ${entry.units} tons`,
+          );
+        doc
+          .fontSize(8)
+          .text(
+            `   Rate: ₹${
+              entry.ratePerUnit
+            } | Total: ₹${entry.totalAmount.toLocaleString('en-IN')}`,
+          );
+        doc.moveDown(0.5);
+      });
+      doc.moveDown();
+    }
+
+    // Expenses section
+    if (otherExpenses.length > 0) {
+      doc.fontSize(16).text('EXPENSES', { underline: true });
+      doc.moveDown();
+
+      otherExpenses.forEach((expense, index) => {
+        doc.fontSize(10).text(`${index + 1}. ${expense.expensesName}`);
+        doc.fontSize(8).text(`   Date: ${expense.date.toLocaleDateString()}`);
+        doc
+          .fontSize(8)
+          .text(`   Amount: ₹${expense.amount.toLocaleString('en-IN')}`);
+        if (expense.others) {
+          doc.fontSize(8).text(`   Notes: ${expense.others}`);
+        }
+        doc.moveDown(0.5);
       });
     }
 
-    console.log('🔍 Generating PDF for (GET):', {
-      startDate,
-      endDate,
-      organizationId,
-    });
-
-    const TruckEntry = require('../src/models/TruckEntry');
-    const OtherExpense = require('../src/models/OtherExpense');
-    const { generatePdf } = require('../src/utils/exportGenerator');
-
-    // Get truck entries
-    const entries = await TruckEntry.find({
-      status: 'active',
-      entryDate: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate + 'T23:59:59.999Z'),
-      },
-      organization: organizationId,
-    })
-      .populate('userId', 'username email')
-      .sort({ entryDate: -1 });
-
-    // Get other expenses
-    const otherExpenses = await OtherExpense.find({
-      isActive: true,
-      date: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate + 'T23:59:59.999Z'),
-      },
-      organization: organizationId,
-    })
-      .populate('user', 'username email')
-      .sort({ date: -1 });
-
-    // Transform data for export
-    const truckEntriesForExport = entries.map(entry => ({
-      date: entry.entryDate.toISOString().split('T')[0],
-      time: entry.entryTime,
-      truckNumber: entry.truckNumber,
-      truckName: entry.truckName || 'N/A',
-      entryType: entry.entryType,
-      materialType: entry.materialType || 'N/A',
-      units: entry.units,
-      ratePerUnit: entry.ratePerUnit,
-      totalAmount: entry.totalAmount,
-    }));
-
-    const otherExpensesForExport = otherExpenses.map(expense => ({
-      date: expense.date.toISOString().split('T')[0],
-      time: expense.date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      truckNumber: 'N/A',
-      truckName: 'N/A',
-      entryType: 'Expense',
-      materialType: expense.expensesName || 'Expense',
-      units: 'N/A',
-      ratePerUnit: 'N/A',
-      totalAmount: expense.amount,
-    }));
-
-    const allEntries = [
-      ...truckEntriesForExport,
-      ...otherExpensesForExport,
-    ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Calculate summary
-    const summary = {
-      totalSales: entries.reduce(
-        (sum, entry) =>
-          sum + (entry.entryType === 'Sales' ? entry.totalAmount : 0),
-        0,
-      ),
-      totalRawStone: entries.reduce(
-        (sum, entry) =>
-          sum + (entry.entryType === 'Raw Stone' ? entry.totalAmount : 0),
-        0,
-      ),
-      totalExpenses: otherExpenses.reduce(
-        (sum, expense) => sum + expense.amount,
-        0,
-      ),
-      netProfit: 0, // Will be calculated below
-    };
-    summary.netProfit =
-      summary.totalSales - summary.totalRawStone - summary.totalExpenses;
-
-    const exportData = {
-      reportInfo: {
-        title: 'CrusherMate Report (PDF)',
-        generatedBy: 'CrusherMate System',
-        organization: organizationId,
-        dateRange: { startDate, endDate },
-      },
-      summary,
-      entries: allEntries,
-    };
-
-    // Generate PDF
-    const pdfBuffer = await generatePdf(exportData);
-    const fileName = `CrusherMate_Report_${
-      new Date().toISOString().split('T')[0]
-    }.pdf`;
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.send(pdfBuffer);
+    // Finalize PDF
+    doc.end();
   } catch (error) {
     console.error('❌ PDF Download Error:', error);
     res.status(500).json({
@@ -364,122 +264,10 @@ app.get('/api/download-pdf', async (req, res) => {
   }
 });
 
-// Direct CSV download endpoint - NO AUTHENTICATION REQUIRED (GET for browser)
+// Simple CSV download endpoint - NO AUTHENTICATION REQUIRED
 app.get('/api/download-csv', async (req, res) => {
   try {
     const { startDate, endDate, organizationId } = req.query;
-
-    if (!startDate || !endDate || !organizationId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Start date, end date, and organization ID are required',
-      });
-    }
-
-    console.log('🔍 Generating CSV for (GET):', {
-      startDate,
-      endDate,
-      organizationId,
-    });
-
-    const TruckEntry = require('../src/models/TruckEntry');
-    const OtherExpense = require('../src/models/OtherExpense');
-
-    // Get truck entries
-    const entries = await TruckEntry.find({
-      status: 'active',
-      entryDate: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate + 'T23:59:59.999Z'),
-      },
-      organization: organizationId,
-    })
-      .populate('userId', 'username email')
-      .sort({ entryDate: -1 });
-
-    // Get other expenses
-    const otherExpenses = await OtherExpense.find({
-      isActive: true,
-      date: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate + 'T23:59:59.999Z'),
-      },
-      organization: organizationId,
-    })
-      .populate('user', 'username email')
-      .sort({ date: -1 });
-
-    // Transform data for export
-    const truckEntriesForExport = entries.map(entry => ({
-      date: entry.entryDate.toISOString().split('T')[0],
-      time: entry.entryTime,
-      truckNumber: entry.truckNumber,
-      truckName: entry.truckName || 'N/A',
-      entryType: entry.entryType,
-      materialType: entry.materialType || 'N/A',
-      units: entry.units,
-      ratePerUnit: entry.ratePerUnit,
-      totalAmount: entry.totalAmount,
-    }));
-
-    const otherExpensesForExport = otherExpenses.map(expense => ({
-      date: expense.date.toISOString().split('T')[0],
-      time: expense.date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      truckNumber: 'N/A',
-      truckName: 'N/A',
-      entryType: 'Expense',
-      materialType: expense.expensesName || 'Expense',
-      units: 'N/A',
-      ratePerUnit: 'N/A',
-      totalAmount: expense.amount,
-    }));
-
-    const allEntries = [
-      ...truckEntriesForExport,
-      ...otherExpensesForExport,
-    ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Generate CSV
-    const { Parser } = require('json2csv');
-    const fields = [
-      'date',
-      'time',
-      'truckNumber',
-      'truckName',
-      'entryType',
-      'materialType',
-      'units',
-      'ratePerUnit',
-      'totalAmount',
-    ];
-
-    const parser = new Parser({ fields });
-    const csv = parser.parse(allEntries);
-
-    const fileName = `CrusherMate_Report_${
-      new Date().toISOString().split('T')[0]
-    }.csv`;
-
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.send(csv);
-  } catch (error) {
-    console.error('❌ CSV Download Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate CSV',
-      error: error.message,
-    });
-  }
-});
-
-// Direct CSV download endpoint - NO AUTHENTICATION REQUIRED (POST)
-app.post('/api/download-csv', async (req, res) => {
-  try {
-    const { startDate, endDate, organizationId } = req.body;
 
     if (!startDate || !endDate || !organizationId) {
       return res.status(400).json({
@@ -521,63 +309,34 @@ app.post('/api/download-csv', async (req, res) => {
       .populate('user', 'username email')
       .sort({ date: -1 });
 
-    // Transform data for export
-    const truckEntriesForExport = entries.map(entry => ({
-      date: entry.entryDate.toISOString().split('T')[0],
-      time: entry.entryTime,
-      truckNumber: entry.truckNumber,
-      truckName: entry.truckName || 'N/A',
-      entryType: entry.entryType,
-      materialType: entry.materialType || 'N/A',
-      units: entry.units,
-      ratePerUnit: entry.ratePerUnit,
-      totalAmount: entry.totalAmount,
-    }));
+    // Create CSV content
+    let csvContent =
+      'Date,Time,Truck Number,Truck Name,Type,Material,Units,Rate,Total Amount\n';
 
-    const otherExpensesForExport = otherExpenses.map(expense => ({
-      date: expense.date.toISOString().split('T')[0],
-      time: expense.date.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-      truckNumber: 'N/A',
-      truckName: 'N/A',
-      entryType: 'Expense',
-      materialType: expense.expensesName || 'Expense',
-      units: 'N/A',
-      ratePerUnit: 'N/A',
-      totalAmount: expense.amount,
-    }));
+    // Add truck entries
+    entries.forEach(entry => {
+      csvContent += `${entry.entryDate.toISOString().split('T')[0]},${
+        entry.entryTime
+      },${entry.truckNumber},${entry.truckName || 'N/A'},${entry.entryType},${
+        entry.materialType || 'N/A'
+      },${entry.units},${entry.ratePerUnit},${entry.totalAmount}\n`;
+    });
 
-    const allEntries = [
-      ...truckEntriesForExport,
-      ...otherExpensesForExport,
-    ].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // Generate CSV
-    const { Parser } = require('json2csv');
-    const fields = [
-      'date',
-      'time',
-      'truckNumber',
-      'truckName',
-      'entryType',
-      'materialType',
-      'units',
-      'ratePerUnit',
-      'totalAmount',
-    ];
-
-    const parser = new Parser({ fields });
-    const csv = parser.parse(allEntries);
-
-    const fileName = `CrusherMate_Report_${
-      new Date().toISOString().split('T')[0]
-    }.csv`;
+    // Add expenses
+    otherExpenses.forEach(expense => {
+      csvContent += `${
+        expense.date.toISOString().split('T')[0]
+      },${expense.date.toLocaleTimeString()},N/A,N/A,Expense,${
+        expense.expensesName || 'Expense'
+      },N/A,N/A,${expense.amount}\n`;
+    });
 
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.send(csv);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="CrusherMate_Report_${startDate}_${endDate}.csv"`,
+    );
+    res.send(csvContent);
   } catch (error) {
     console.error('❌ CSV Download Error:', error);
     res.status(500).json({
