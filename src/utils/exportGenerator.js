@@ -53,10 +53,22 @@ const generatePdf = data => {
     const contentWidth = pageWidth - margin * 2;
 
     // 1. HEADER - Simple bank statement style
-    doc.rect(0, 0, pageWidth, 60).fill(colors.header);
+    doc.rect(0, 0, pageWidth, 70).fill(colors.header);
     doc.fillColor(colors.white);
-    doc.fontSize(24).font('Helvetica-Bold').text('CrusherMate', margin, 15);
-    doc.fontSize(12).font('Helvetica').text('Financial Statement', margin, 45);
+    doc.fontSize(24).font('Helvetica-Bold').text('CrusherMate', margin, 14);
+    // Organization name under title if provided
+    const orgName =
+      (data &&
+        data.reportInfo &&
+        (data.reportInfo.organizationName ||
+          data.reportInfo.organization?.name)) ||
+      (typeof data?.reportInfo?.organization === 'string'
+        ? data.reportInfo.organization
+        : '');
+    if (orgName) {
+      doc.fontSize(12).font('Helvetica-Bold').text(orgName, margin, 38);
+    }
+    doc.fontSize(11).font('Helvetica').text('Financial Statement', margin, 54);
 
     // Reset colors
     doc.fillColor(colors.black);
@@ -274,7 +286,8 @@ const generatePdf = data => {
     // EXPENSES TABLE
     drawSectionTitle('Expenses');
     const expHeaders = ['Date', 'Expense Name', 'Amount', 'Notes'];
-    const expWidths = [90, 170, 90, contentWidth - 90 - 170 - 90];
+    // Wider columns for better alignment of amounts and notes
+    const expWidths = [90, 220, 100, contentWidth - 90 - 220 - 100];
     const expRows = expenses.map(e => [
       formatDate(e.date),
       e.materialType || 'Expense',

@@ -384,6 +384,10 @@ const generateExportData = asyncHandler(async (req, res) => {
         title: `CrusherMate Report (${format.toUpperCase()})`,
         generatedBy: req.user.username || 'CrusherMate System',
         organization: req.user.organization,
+        organizationName:
+          (req.user.organization && req.user.organization.name) ||
+          req.user.organizationName ||
+          undefined,
         dateRange: { startDate, endDate },
       },
       summary,
@@ -749,6 +753,7 @@ const downloadWithToken = asyncHandler(async (req, res) => {
         title: `CrusherMate Report (${downloadData.format.toUpperCase()})`,
         generatedBy: 'CrusherMate System',
         organization: downloadData.organization,
+        organizationName: undefined, // optional; not available on token flow
         dateRange: {
           startDate: downloadData.startDate,
           endDate: downloadData.endDate,
