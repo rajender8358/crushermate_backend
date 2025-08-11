@@ -3,6 +3,7 @@ const User = require('../models/User');
 const MaterialRate = require('../models/MaterialRate');
 const OtherExpense = require('../models/OtherExpense');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const Organization = require('../models/Organization');
 const { generatePdf } = require('../utils/exportGenerator');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -748,12 +749,21 @@ const downloadWithToken = asyncHandler(async (req, res) => {
       ...otherExpensesForExport,
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // Get organization name for header (if available)
+    let organizationName;
+    try {
+      const org = await Organization.findById(downloadData.organization).lean();
+      organizationName = org?.name;
+    } catch (e) {
+      organizationName = undefined;
+    }
+
     const exportData = {
       reportInfo: {
         title: `CrusherMate Report (${downloadData.format.toUpperCase()})`,
         generatedBy: 'CrusherMate System',
         organization: downloadData.organization,
-        organizationName: undefined, // optional; not available on token flow
+        organizationName,
         dateRange: {
           startDate: downloadData.startDate,
           endDate: downloadData.endDate,
