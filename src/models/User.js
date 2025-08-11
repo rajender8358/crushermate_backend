@@ -14,8 +14,17 @@ const userSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       minlength: [3, 'Username must be at least 3 characters long'],
-      maxlength: [15, 'Username cannot exceed 15 characters'],
+      maxlength: [50, 'Username cannot exceed 50 characters'], // Increased for email support
       index: true, // Add index for faster queries
+    },
+    email: {
+      type: String,
+      required: false, // Optional for backward compatibility
+      unique: true,
+      sparse: true, // Allow multiple null values
+      trim: true,
+      lowercase: true,
+      index: true,
     },
     password: {
       type: String,
@@ -53,6 +62,7 @@ const userSchema = new mongoose.Schema(
 
 // Compound indexes for better query performance
 userSchema.index({ username: 1, isActive: 1 });
+userSchema.index({ email: 1, isActive: 1 });
 userSchema.index({ role: 1, isActive: 1 });
 userSchema.index({ organization: 1, isActive: 1 });
 
@@ -97,12 +107,25 @@ userSchema.statics.getActiveUsers = function () {
     .exec();
 };
 
-// Optimized findOne method for login
-userSchema.statics.findByUsernameForLogin = function (username) {
-  return this.findOne({
-    username: { $regex: new RegExp(`^${username}$`, 'i') }, // Case-insensitive
-    isActive: true,
-  })
+// Optimized findOne method for login - supports both username and email
+userSchema.statics.findByUsernameForLogin = function (usernameOrEmail) {
+  // Check if input looks like an email
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(usernameOrEmail);
+
+  let query = { isActive: true };
+
+  if (isEmail) {
+    // If it's an email, search by both email and username fields
+    query.$or = [
+      { email: { $regex: new RegExp(`^${usernameOrEmail}$`, 'i') } },
+      { username: { $regex: new RegExp(`^${usernameOrEmail}$`, 'i') } }
+    ];
+  } else {
+    // If it's a username, search by username
+    query.username = { $regex: new RegExp(`^${usernameOrEmail}$`, 'i') };
+  }
+
+  return this.findOne(query)
     .populate('organization')
     .select('+password')
     .lean()

@@ -135,84 +135,158 @@ const generatePdf = data => {
         .text(item.value, margin + 150, rowY);
     });
 
-    // 4. TRANSACTIONS TABLE - Simple bank statement style
-    const tableY = summaryY + 150;
-    doc
-      .fontSize(16)
-      .font('Helvetica-Bold')
-      .text('Transaction History', margin, tableY);
+    // Helper: add page if needed
+    const bottomMargin = 60;
+    let currentY = summaryY + 20 + 130; // reserve space after summary
 
-    // Simple table headers
-    const headers = [
+    function ensureSpace(required) {
+      if (currentY + required > pageHeight - bottomMargin) {
+        doc.addPage();
+        // reset header band for new page (optional minimal)
+        doc.fillColor(colors.black);
+        currentY = margin;
+      }
+    }
+
+    function drawSectionTitle(title) {
+      ensureSpace(30);
+      doc
+        .fontSize(16)
+        .font('Helvetica-Bold')
+        .fillColor(colors.header)
+        .text(title, margin, currentY);
+      currentY += 8;
+      doc
+        .fillColor(colors.border)
+        .moveTo(margin, currentY)
+        .lineTo(margin + contentWidth, currentY)
+        .stroke();
+      doc.fillColor(colors.black);
+      currentY += 10;
+    }
+
+    function drawTable(headers, rows, widths, align = []) {
+      // header bar
+      const rowHeight = 18;
+      ensureSpace(30);
+      doc
+        .fillColor(colors.header)
+        .rect(margin, currentY, contentWidth, rowHeight)
+        .fill();
+      doc.fillColor(colors.white).font('Helvetica-Bold').fontSize(10);
+      let x = margin;
+      headers.forEach((h, i) => {
+        const w = widths[i];
+        doc.text(h, x + 4, currentY + 4, {
+          width: w - 8,
+          align: align[i] || 'left',
+        });
+        x += w;
+      });
+      currentY += rowHeight;
+
+      // rows
+      doc.fillColor(colors.black).font('Helvetica').fontSize(9);
+      rows.forEach((row, idx) => {
+        ensureSpace(rowHeight + 4);
+        // zebra
+        if (idx % 2 === 0) {
+          doc
+            .fillColor(colors.lightGray)
+            .rect(margin, currentY, contentWidth, rowHeight)
+            .fill();
+          doc.fillColor(colors.black);
+        }
+        let x = margin;
+        row.forEach((cell, i) => {
+          const w = widths[i];
+          doc.text(String(cell ?? ''), x + 4, currentY + 4, {
+            width: w - 8,
+            align: align[i] || 'left',
+          });
+          x += w;
+        });
+        currentY += rowHeight;
+      });
+      currentY += 10; // space after table
+    }
+
+    // Group data
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    const sales = entries.filter(
+      e => (e.entryType || '').toLowerCase() === 'sales',
+    );
+    const rawStones = entries.filter(e => {
+      const t = (e.entryType || '').toLowerCase();
+      return t === 'raw stone' || t === 'rawstone';
+    });
+    const expenses = entries.filter(
+      e => (e.entryType || '').toLowerCase() === 'expense',
+    );
+
+    // SALES TABLE
+    drawSectionTitle('Sales');
+    const salesHeaders = [
       'Date',
-      'Time',
-      'Type',
-      'Description',
-      'Material/Expense',
+      'Truck No',
+      'Material',
       'Units',
+      'Rate',
       'Amount',
     ];
-    const colPositions = [
-      margin,
-      margin + 70,
-      margin + 130,
-      margin + 200,
-      margin + 280,
-      margin + 350,
-      margin + 400,
-    ];
+    const salesWidths = [90, 90, 150, 60, 80, 95];
+    const salesRows = sales.map(e => [
+      formatDate(e.date),
+      e.truckNumber || '—',
+      e.materialType || '—',
+      e.units ?? '—',
+      e.ratePerUnit != null ? formatCurrency(Number(e.ratePerUnit)) : '—',
+      e.totalAmount != null ? formatCurrency(Number(e.totalAmount)) : '—',
+    ]);
+    drawTable(salesHeaders, salesRows, salesWidths, [
+      'left',
+      'left',
+      'left',
+      'right',
+      'right',
+      'right',
+    ]);
 
-    // Header row
-    doc
-      .fillColor(colors.header)
-      .rect(margin, tableY + 15, contentWidth, 20)
-      .fill();
-    doc.fillColor(colors.white);
-    headers.forEach((header, index) => {
-      doc
-        .fontSize(10)
-        .font('Helvetica-Bold')
-        .text(header, colPositions[index], tableY + 20);
-    });
+    // RAW STONE TABLE
+    drawSectionTitle('Raw Stone');
+    const rawHeaders = ['Date', 'Truck No', 'Units', 'Rate', 'Amount'];
+    const rawWidths = [120, 120, 70, 100, 165];
+    const rawRows = rawStones.map(e => [
+      formatDate(e.date),
+      e.truckNumber || '—',
+      e.units ?? '—',
+      e.ratePerUnit != null ? formatCurrency(Number(e.ratePerUnit)) : '—',
+      e.totalAmount != null ? formatCurrency(Number(e.totalAmount)) : '—',
+    ]);
+    drawTable(rawHeaders, rawRows, rawWidths, [
+      'left',
+      'left',
+      'right',
+      'right',
+      'right',
+    ]);
 
-    // Reset colors
-    doc.fillColor(colors.black);
-
-    // Data rows
-    let currentY = tableY + 45;
-    data.entries.forEach((entry, index) => {
-      // Simple alternating background
-      if (index % 2 === 0) {
-        doc
-          .fillColor(colors.lightGray)
-          .rect(margin, currentY - 5, contentWidth, 20)
-          .fill();
-      }
-      doc.fillColor(colors.black);
-
-      // Row data
-      doc
-        .fontSize(9)
-        .font('Helvetica')
-        .text(formatDate(entry.date), colPositions[0], currentY);
-      doc.text(formatTime(entry.time), colPositions[1], currentY);
-      doc.text(entry.entryType, colPositions[2], currentY);
-      doc.text(entry.description || 'N/A', colPositions[3], currentY);
-      doc.text(entry.materialType || 'N/A', colPositions[4], currentY);
-      doc.text(entry.units.toString(), colPositions[5], currentY);
-      doc
-        .font('Helvetica-Bold')
-        .text(formatCurrency(entry.totalAmount), colPositions[6], currentY);
-      doc.font('Helvetica');
-
-      currentY += 25;
-    });
-
-    // Simple table border
-    doc.strokeColor(colors.border).lineWidth(1);
-    doc
-      .rect(margin, tableY + 15, contentWidth, currentY - tableY - 10)
-      .stroke();
+    // EXPENSES TABLE
+    drawSectionTitle('Expenses');
+    const expHeaders = ['Date', 'Expense Name', 'Amount', 'Notes'];
+    const expWidths = [90, 170, 90, contentWidth - 90 - 170 - 90];
+    const expRows = expenses.map(e => [
+      formatDate(e.date),
+      e.materialType || 'Expense',
+      e.totalAmount != null ? formatCurrency(Number(e.totalAmount)) : '—',
+      e.description || '',
+    ]);
+    drawTable(expHeaders, expRows, expWidths, [
+      'left',
+      'left',
+      'right',
+      'left',
+    ]);
 
     // 5. FOOTER - Simple bank statement footer
     const footerY = pageHeight - 60;

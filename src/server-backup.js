@@ -58,13 +58,7 @@ app.use(
   cors({
     origin: process.env.ALLOWED_ORIGINS
       ? process.env.ALLOWED_ORIGINS.split(',')
-      : [
-          'http://localhost:8081',
-          'http://10.0.2.2:8081',
-          'http://192.168.29.243:8081',
-          'http://49.37.152.235:8081',
-          '*',
-        ], // Allow all origins for testing
+      : ['http://localhost:3000'], // Allow all origins for testing
     credentials: process.env.CORS_CREDENTIALS === 'true' || true,
   }),
 );
